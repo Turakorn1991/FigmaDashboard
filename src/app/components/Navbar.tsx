@@ -18,12 +18,16 @@ export function Navbar() {
           <div style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>
             ระบบจัดการข้อมูลโรงงานผลิตอาวุธของเอกชน สำหรับเจ้าหน้าที่
           </div>
-          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)" }}>
+          <div style={{ fontSize: 10, color: "rgba(142, 255, 255)" }}>
             Private Arms Manufacturing Factory system
           </div>
         </div>
       </div>
       <div className="flex items-center gap-4">
+        
+        <button className="flex items-center gap-1" style={{ color: "rgba(255,255,255,0.8)", fontSize: 12 }}>
+          Administrator <ChevronDown size={13} />
+        </button>
         <div className="relative">
           <Bell size={18} color="rgba(255,255,255,0.7)" />
           <span
@@ -33,10 +37,7 @@ export function Navbar() {
             99+
           </span>
         </div>
-        <button className="flex items-center gap-1" style={{ color: "rgba(255,255,255,0.8)", fontSize: 12 }}>
-          Administrator <ChevronDown size={13} />
-        </button>
-        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.4)" }}>Version 1.0.0</span>
+
       </div>
     </div>
   );

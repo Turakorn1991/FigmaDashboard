@@ -13,7 +13,7 @@ Shell: Full-height flex layout — Sidebar (200px fixed left) + Main (flex-grow)
 SIDEBAR:
 - Background: #1a1a2e (dark navy)
 - Top: Shield logo icon + system name (white, bold 11px) + subtitle (gray 9px)
-- Menu section label: "ระบบค้าขอ" (uppercase gray, 9px)
+- Menu section label: "ระบบรายงาน" (uppercase gray, 9px)
 - Menu item "รายงาน" with expand arrow, sub-items: รายงาน#1 through รายงาน#5
 - Active sub-item: left border 3px #7C3AED, background rgba(124,58,237,0.18), text #a78bfa
 - Inactive items: text rgba(255,255,255,0.65), hover background rgba(255,255,255,0.06)
@@ -78,34 +78,34 @@ Badge style: inline-flex, padding 2px 9px, border-radius 20px, font-size 10px, f
 === 5 DASHBOARD PAGES ===
 
 PAGE 1 — "ภาพรวมการขนย้ายยุทธภัณฑ์" (Overview)
-Breadcrumb: ระบบค้าขอ / รายงาน#1 ภาพรวม
+Breadcrumb: ระบบรายงาน / รายงาน#1 ภาพรวม
 KPI (5 cards): กระสุนรวม (นัด) purple | วัตถุระเบิด (กก.) blue | ใบอนุญาตทั้งหมด green | บริษัท (แห่ง) orange | หน่วยงานผู้รับ red
 Charts: [2/3 width] Bar+Line Chart "แนวโน้มการขนย้ายรายเดือน" + [1/3 width] Donut Chart "สัดส่วนรายบริษัท"
 Table columns: # | เดือน | กระสุน (นัด) ⇅ | ระเบิด (กก.) ⇅ | ใบอนุญาต ⇅ | บริษัท | สถานะ
 
 PAGE 2 — "ข้อมูลแยกรายบริษัท" (Company Breakdown)
-Breadcrumb: ระบบค้าขอ / รายงาน#2 รายบริษัท
+Breadcrumb: ระบบรายงาน / รายงาน#2 รายบริษัท
 Filter extras: dropdown "บริษัท" + dropdown "ผู้ประกอบการ"
 KPI: hidden (charts replace KPI)
 Charts (3 equal columns): Horizontal Bar "Top 5 บริษัทขนย้ายสูงสุด" | Pie "Market Share รายบริษัท" | Stacked Bar "สถานะใบอนุญาตแยกบริษัท"
 Table columns: # | เลขที่อ้างอิง | บริษัท | กระสุน (นัด) ⇅ | ระเบิด (กก.) ⇅ | ใบอนุญาต ⇅ | % ส่วนแบ่ง (mini progress bar) | สถานะ
 
 PAGE 3 — "ประเภทและขนาดกระสุน/วัตถุระเบิด" (Ammunition & Explosives)
-Breadcrumb: ระบบค้าขอ / รายงาน#3 ประเภทกระสุน
+Breadcrumb: ระบบรายงาน / รายงาน#3 ประเภทกระสุน
 Filter extras: dropdown "ขนาดกระสุน" (9มม./5.56มม./.45/.50) + dropdown "ประเภทระเบิด"
 KPI (4 cards): กระสุนรวม (นัด) | ดินระเบิด (กก.) | เชื้อปะทุ (ชิ้น) | ขนาดที่มีการขนย้าย
 Charts (2 equal): Grouped Bar "ปริมาณกระสุนแยกตามขนาด" + Bar "วัตถุระเบิดแยกตามประเภท"
 Table columns: # | เลขที่อ้างอิง | บริษัท | 9มม. | 5.56มม. | .45 | .50 | ดินระเบิด(กก.) | เชื้อปะทุ(ชิ้น) | สถานะ
 
 PAGE 4 — "ปลายทางหน่วยงานผู้รับกระสุน" (Recipients / Destinations)
-Breadcrumb: ระบบค้าขอ / รายงาน#4 ปลายทาง
+Breadcrumb: ระบบรายงาน / รายงาน#4 ปลายทาง
 Filter extras: dropdown "ประเภทหน่วยงาน ม.7" (ทหาร/ตำรวจ/อื่นๆ/สนามยิงปืน) + dropdown "ภูมิภาค"
 KPI (4 cards): ทหาร (นัด) blue | ตำรวจ (นัด) orange | อื่นๆ ใน ม.7 purple | สนามยิงปืน green
 Charts (2 equal): Stacked Bar "ส่งมอบตามประเภทหน่วยงาน ม.7 แยกบริษัท" + Bar "สนามยิงปืน ทหาร/ตำรวจ"
 Table columns: # | เลขที่อ้างอิง | วันที่รับเรื่อง | หน่วยงานผู้รับ | ประเภท ม.7 (badge) | ภูมิภาค | กระสุน (นัด) | บริษัทผู้ผลิต | เลขสัญญา | สถานะ
 
 PAGE 5 — "ติดตามใบอนุญาตขนย้ายยุทธภัณฑ์" (Permit Tracking)
-Breadcrumb: ระบบค้าขอ / รายงาน#5 ใบอนุญาต
+Breadcrumb: ระบบรายงาน / รายงาน#5 ใบอนุญาต
 Filter: replace 3rd date picker with "วันหมดอายุ" date range
 KPI (4 cards): รอดำเนินการ orange | กำลังขนย้าย blue | เสร็จสิ้นแล้ว green | ใกล้หมดอายุ (30วัน) red
 Charts (2 equal): Stacked Bar "สถานะใบอนุญาตแยกรายบริษัท" + Line Chart "แนวโน้มการออกใบอนุญาตรายเดือน"

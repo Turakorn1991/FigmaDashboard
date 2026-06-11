@@ -15,12 +15,10 @@ const tableData = [
 export function Page3Ammo() {
   return (
     <div>
-      <div style={{ fontSize: 11, color: "#6B7280", marginBottom: 6 }}>ระบบค้าขอ / รายงาน#3 ประเภทกระสุน</div>
+      <div style={{ fontSize: 11, color: "#6B7280", marginBottom: 6 }}>ระบบรายงาน / รายงาน</div>
       <div className="flex items-center justify-between mb-4">
         <h1 style={{ fontSize: 20, fontWeight: 700, color: "#111827" }}>ประเภทและขนาดกระสุน/วัตถุระเบิด</h1>
-        <button style={{ height: 36, background: "#7C3AED", color: "#fff", borderRadius: 8, border: "none", padding: "0 16px", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-          <Download size={14} /> สร้างรายงาน
-        </button>
+
       </div>
 
       <FilterCard

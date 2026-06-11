@@ -23,9 +23,9 @@ export function Sidebar({ activePage, onPageChange }: SidebarProps) {
 
   const itemStyle = (id: number): React.CSSProperties => ({
     fontSize: 11,
-    color: isActive(id) ? "#a78bfa" : "rgba(255,255,255,0.65)",
-    background: isActive(id) ? "rgba(124,58,237,0.18)" : "transparent",
-    borderLeft: isActive(id) ? "3px solid #7C3AED" : "3px solid transparent",
+    color: isActive(id) ? "#fff" : "rgba(255,255,255,0.65)",
+    background: isActive(id) ? "rgba(255,255,255,0.1)" : "transparent",
+    borderLeft: isActive(id) ? "3px solid rgba(255,255,255,0.5)" : "3px solid transparent",
   });
 
   return (
@@ -33,23 +33,7 @@ export function Sidebar({ activePage, onPageChange }: SidebarProps) {
       style={{ width: 200, minWidth: 200, background: "#1a1a2e" }}
       className="flex flex-col h-full"
     >
-      {/* Logo + Title */}
-      <div className="flex items-center gap-2.5 px-3 py-4 border-b border-white/10">
-        <img
-          src={LOGO}
-          alt="ISPF Logo"
-          style={{ width: 36, height: 36, objectFit: "contain", flexShrink: 0 }}
-        />
-        <div>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "#fff", lineHeight: 1.35 }}>
-            ระบบจัดการข้อมูล<br />โรงงานผลิตอาวุธ
-          </div>
-          <div style={{ fontSize: 8.5, color: "rgba(255,255,255,0.4)", lineHeight: 1.4 }}>
-            Private Arms Manufacturing
-          </div>
-        </div>
-      </div>
-
+     
       {/* Menu */}
       <div className="flex-1 py-3">
         {/* หน้าหลัก */}
@@ -69,7 +53,7 @@ export function Sidebar({ activePage, onPageChange }: SidebarProps) {
           style={{ fontSize: 9, color: "rgba(255,255,255,0.4)", letterSpacing: "0.08em", textTransform: "uppercase" }}
           className="px-4 mt-3 mb-1.5"
         >
-          ระบบค้าขอ
+          ระบบรายงาน
         </div>
 
         {/* Reports parent */}
