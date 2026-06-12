@@ -18,18 +18,21 @@ export function Page1Overview() {
   return (
     <div>
       {/* Breadcrumb */}
-      <div style={{ fontSize: 11, color: "#6B7280", marginBottom: 6 }}>ระบบรายงาน / รายงาน</div>
+      <div style={{ fontSize: 12, color: "#6B7280", marginBottom: 6 }}>ระบบรายงาน / รายงาน</div>
 
       {/* Page title + action button */}
       <div className="flex items-center justify-between mb-4">
-        <h1 style={{ fontSize: 20, fontWeight: 700, color: "#111827" }}>ภาพรวมการขนย้ายยุทธภัณฑ์</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: "#0E1119", margin: 0 }}>ภาพรวมการขนย้ายยุทธภัณฑ์</h1>
+        <button style={{ height: 40, background: "#6574FF", color: "#fff", border: "none", borderRadius: 6, padding: "0 16px", fontSize: 14, fontWeight: 400, cursor: "pointer" }}>
+          + เพิ่มข้อมูล
+        </button>
       </div>
 
       <FilterCard />
 
       {/* KPI Row */}
       <div className="flex gap-3 mb-4">
-        <KpiCard label="กระสุนรวม (นัด)" value="297,100" sub="ปีงบประมาณ 2566" color="#7C3AED" />
+        <KpiCard label="กระสุนรวม (นัด)" value="297,100" sub="ปีงบประมาณ 2566" color="#6574FF" />
         <KpiCard label="วัตถุระเบิด (กก.)" value="7,930" sub="ปีงบประมาณ 2566" color="#2563EB" />
         <KpiCard label="ใบอนุญาตทั้งหมด" value="120" sub="ออกใบอนุญาตแล้ว" color="#16A34A" />
         <KpiCard label="บริษัท (แห่ง)" value="14" sub="บริษัทที่ได้รับอนุญาต" color="#EA580C" />
@@ -47,9 +50,9 @@ export function Page1Overview() {
       </div>
 
       {/* Table */}
-      <div className="bg-white" style={{ borderRadius: 10, border: "1px solid #E5E7EB", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#111827" }}>ข้อมูลการขนย้ายรายเดือน</div>
+      <div className="bg-white" style={{ borderRadius: 8, overflow: "hidden" }}>
+        <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid #F0F0F0" }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#0E1119" }}>ข้อมูลการขนย้ายรายเดือน</div>
           <div className="flex gap-2">
             {[
               { icon: <FileSpreadsheet size={12} />, label: "Export ดิบ (Excel)" },
@@ -66,12 +69,12 @@ export function Page1Overview() {
           </div>
         </div>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead style={{ background: "#FAFAFA" }}>
+          <thead style={{ background: "#fff" }}>
             <tr>
               {["#", "เดือน", "กระสุน (นัด)", "ระเบิด (กก.)", "ใบอนุญาต", "บริษัท", "สถานะ"].map((h) => (
                 <th
                   key={h}
-                  style={{ padding: "8px 10px", fontSize: 10, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.05em", textAlign: "left", borderBottom: "1px solid #F3F4F6" }}
+                  style={{ padding: "10px 12px", fontSize: 13, fontWeight: 700, color: "rgba(0,0,0,0.88)", textAlign: "left", borderBottom: "1px solid #F0F0F0" }}
                 >
                   <span className="flex items-center gap-1">
                     {h} {["กระสุน (นัด)", "ระเบิด (กก.)", "ใบอนุญาต"].includes(h) && <ArrowUpDown size={10} color="#D1D5DB" />}
@@ -88,13 +91,13 @@ export function Page1Overview() {
                 onMouseEnter={(e) => (e.currentTarget.style.background = "#F9FAFB")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "")}
               >
-                <td style={{ padding: "8px 10px", fontSize: 12, color: "#6B7280" }}>{i + 1}</td>
-                <td style={{ padding: "8px 10px", fontSize: 12, color: "#374151" }}>{row.month}</td>
-                <td style={{ padding: "8px 10px", fontSize: 12, color: "#374151", fontFamily: "monospace" }}>{row.bullets}</td>
-                <td style={{ padding: "8px 10px", fontSize: 12, color: "#374151", fontFamily: "monospace" }}>{row.explosives}</td>
-                <td style={{ padding: "8px 10px", fontSize: 12, color: "#374151", fontFamily: "monospace" }}>{row.permits}</td>
-                <td style={{ padding: "8px 10px", fontSize: 12, color: "#374151" }}>{row.company}</td>
-                <td style={{ padding: "8px 10px" }}><StatusBadge status={row.status} /></td>
+                <td style={{ padding: "10px 12px", fontSize: 13, color: "rgba(0,0,0,0.65)" }}>{i + 1}</td>
+                <td style={{ padding: "10px 12px", fontSize: 13, color: "rgba(0,0,0,0.88)" }}>{row.month}</td>
+                <td style={{ padding: "10px 12px", fontSize: 13, color: "rgba(0,0,0,0.88)" }}>{row.bullets}</td>
+                <td style={{ padding: "10px 12px", fontSize: 13, color: "rgba(0,0,0,0.88)" }}>{row.explosives}</td>
+                <td style={{ padding: "10px 12px", fontSize: 13, color: "rgba(0,0,0,0.88)" }}>{row.permits}</td>
+                <td style={{ padding: "10px 12px", fontSize: 13, color: "rgba(0,0,0,0.88)" }}>{row.company}</td>
+                <td style={{ padding: "10px 12px" }}><StatusBadge status={row.status} /></td>
               </tr>
             ))}
           </tbody>

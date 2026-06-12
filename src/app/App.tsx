@@ -22,19 +22,11 @@ export default function App() {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", fontFamily: "Inter, 'Noto Sans Thai', sans-serif", overflow: "hidden" }}>
-      {/* Top navbar */}
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", fontFamily: "'Noto Sans Thai', Inter, sans-serif", overflow: "hidden" }}>
       <Navbar />
-
-      {/* Body */}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        {/* Sidebar */}
         <Sidebar activePage={activePage} onPageChange={setActivePage} />
-
-        {/* Main content */}
-        <main
-          style={{ flex: 1, background: "#F4F6FB", overflowY: "auto", padding: "18px 22px" }}
-        >
+        <main style={{ flex: 1, background: "#F8F9FA", overflowY: "auto", padding: "20px" }}>
           {pages[activePage]}
         </main>
       </div>
