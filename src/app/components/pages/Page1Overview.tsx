@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { Search, FileSpreadsheet, FileText, ChevronDown, X, Download, Copy, Check } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Sector } from "recharts";
+import { Table, ConfigProvider } from "antd";
+import type { TableColumnsType, TableProps } from "antd";
+import * as XLSX from "xlsx";
 
 const PRIMARY = "#6574FF";
 const FF = "'Noto Sans Thai', Inter, sans-serif";
@@ -110,31 +113,62 @@ const WEAPONS = [
 
 interface MockRow {
   id: number; companyId: string; company: string;
-  buyerGroupId: string; regionId: string; weaponId: string;
+  buyerGroupId: string; buyerUnit: string; regionId: string; weaponId: string;
   qty: number; date: string; status: string;
 }
 
 const MOCK_ROWS: MockRow[] = [
-  { id:1,  companyId:"8",  company:"บริษัท ไทยอามส์ จำกัด",                        buyerGroupId:"1", regionId:"S",  weaponId:"P-0035", qty:230000, date:"2568-01-15", status:"อนุมัติ" },
-  { id:2,  companyId:"3",  company:"บริษัท รอยัล แอมมูนิชั่น จำกัด",               buyerGroupId:"2", regionId:"C",  weaponId:"P-0034", qty:85000,  date:"2568-02-10", status:"อนุมัติ" },
-  { id:3,  companyId:"1",  company:"บริษัท เนแรค อาร์มส อินดัสตรี จำกัด",         buyerGroupId:"1", regionId:"N",  weaponId:"P-0036", qty:150000, date:"2568-02-20", status:"อนุมัติ" },
-  { id:4,  companyId:"6",  company:"บริษัท บุลเล็ท มาสเตอร์ จำกัด",               buyerGroupId:"1", regionId:"NE", weaponId:"P-0035", qty:320000, date:"2568-03-05", status:"อนุมัติ" },
-  { id:5,  companyId:"14", company:"บริษัท สยาม แอมมูนิชั่น จำกัด",               buyerGroupId:"2", regionId:"E",  weaponId:"P-0034", qty:65000,  date:"2568-03-18", status:"กำลังดำเนินการ" },
-  { id:6,  companyId:"4",  company:"บริษัท พี.วี.เอ็กซโพลซิฟ (ไทยแลนด์) จำกัด", buyerGroupId:"3", regionId:"W",  weaponId:"P-0160", qty:12000,  date:"2568-04-01", status:"อนุมัติ" },
-  { id:7,  companyId:"8",  company:"บริษัท ไทยอามส์ จำกัด",                        buyerGroupId:"1", regionId:"C",  weaponId:"P-0060", qty:45000,  date:"2568-04-12", status:"อนุมัติ" },
-  { id:8,  companyId:"2",  company:"บริษัท ณธรรศชาตรี จำกัด",                      buyerGroupId:"9", regionId:"C",  weaponId:"P-0033", qty:8500,   date:"2568-04-25", status:"รอดำเนินการ" },
-  { id:9,  companyId:"5",  company:"บริษัท อัสพรรณ เอ็กซ์โพลซีฟ จำกัด",          buyerGroupId:"0", regionId:"S",  weaponId:"P-0161", qty:3200,   date:"2568-05-02", status:"อนุมัติ" },
-  { id:10, companyId:"15", company:"บริษัท ไทย ทรัพย์นคร จำกัด",                  buyerGroupId:"2", regionId:"N",  weaponId:"P-0028", qty:22000,  date:"2568-05-14", status:"อนุมัติ" },
-  { id:11, companyId:"3",  company:"บริษัท รอยัล แอมมูนิชั่น จำกัด",               buyerGroupId:"1", regionId:"NE", weaponId:"P-0035", qty:180000, date:"2568-05-20", status:"อนุมัติ" },
-  { id:12, companyId:"6",  company:"บริษัท บุลเล็ท มาสเตอร์ จำกัด",               buyerGroupId:"2", regionId:"C",  weaponId:"P-0034", qty:75000,  date:"2568-06-03", status:"กำลังดำเนินการ" },
-  { id:13, companyId:"7",  company:"บริษัท ใช้ เอ็กซ์โพลซีฟส์ จำกัด",            buyerGroupId:"1", regionId:"S",  weaponId:"P-0036", qty:95000,  date:"2568-06-10", status:"อนุมัติ" },
-  { id:14, companyId:"1",  company:"บริษัท เนแรค อาร์มส อินดัสตรี จำกัด",         buyerGroupId:"3", regionId:"E",  weaponId:"P-0050", qty:5500,   date:"2568-06-18", status:"อนุมัติ" },
-  { id:15, companyId:"8",  company:"บริษัท ไทยอามส์ จำกัด",                        buyerGroupId:"1", regionId:"S",  weaponId:"P-0035", qty:410000, date:"2568-07-01", status:"อนุมัติ" },
-  { id:16, companyId:"4",  company:"บริษัท พี.วี.เอ็กซโพลซิฟ (ไทยแลนด์) จำกัด", buyerGroupId:"9", regionId:"N",  weaponId:"P-0090", qty:1200,   date:"2568-07-15", status:"อนุมัติ" },
-  { id:17, companyId:"14", company:"บริษัท สยาม แอมมูนิชั่น จำกัด",               buyerGroupId:"2", regionId:"W",  weaponId:"P-0034", qty:48000,  date:"2568-07-22", status:"อนุมัติ" },
-  { id:18, companyId:"2",  company:"บริษัท ณธรรศชาตรี จำกัด",                      buyerGroupId:"1", regionId:"NE", weaponId:"P-0063", qty:28000,  date:"2568-08-05", status:"รอดำเนินการ" },
-  { id:19, companyId:"15", company:"บริษัท ไทย ทรัพย์นคร จำกัด",                  buyerGroupId:"2", regionId:"C",  weaponId:"P-0031", qty:15000,  date:"2568-08-12", status:"อนุมัติ" },
-  { id:20, companyId:"5",  company:"บริษัท อัสพรรณ เอ็กซ์โพลซีฟ จำกัด",          buyerGroupId:"0", regionId:"E",  weaponId:"P-0170", qty:2200,   date:"2568-08-20", status:"อนุมัติ" },
+  // บริษัท เนแรค อาร์มส (1)
+  { id:1,  companyId:"1",  company:"บริษัท เนแรค อาร์มส อินดัสตรี จำกัด",         buyerGroupId:"1", buyerUnit:"กองพันทหารม้าที่ 4 กองพลที่ 1 รักษาพระองค์",                          regionId:"N",  weaponId:"P-0036", qty:150000, date:"2568-01-10", status:"อนุมัติ" },
+  { id:2,  companyId:"1",  company:"บริษัท เนแรค อาร์มส อินดัสตรี จำกัด",         buyerGroupId:"2", buyerUnit:"กองร้อยตำรวจตระเวนชายแดนที่ 414",                                      regionId:"C",  weaponId:"P-0035", qty:42000,  date:"2568-02-15", status:"อนุมัติ" },
+  { id:3,  companyId:"1",  company:"บริษัท เนแรค อาร์มส อินดัสตรี จำกัด",         buyerGroupId:"3", buyerUnit:"สมาคมยิงปืนเขาเขียวนครสวรรค์",                                        regionId:"E",  weaponId:"P-0050", qty:5500,   date:"2568-03-20", status:"อนุมัติ" },
+  { id:4,  companyId:"1",  company:"บริษัท เนแรค อาร์มส อินดัสตรี จำกัด",         buyerGroupId:"9", buyerUnit:"สำนักป้องกันรักษาป่าและควบคุมไฟป่า กรมป่าไม้ กรุงเทพ ฯ",            regionId:"W",  weaponId:"P-0034", qty:8800,   date:"2568-04-05", status:"กำลังดำเนินการ" },
+  { id:5,  companyId:"1",  company:"บริษัท เนแรค อาร์มส อินดัสตรี จำกัด",         buyerGroupId:"0", buyerUnit:"-",                                                                     regionId:"S",  weaponId:"P-0033", qty:2100,   date:"2568-05-12", status:"อนุมัติ" },
+  { id:6,  companyId:"2",  company:"บริษัท ณธรรศชาตรี จำกัด",                      buyerGroupId:"1", buyerUnit:"กรมทหารราบที่ 6 ค่ายสรรพสิทธิประสงค์",                               regionId:"NE", weaponId:"P-0063", qty:68000,  date:"2568-01-18", status:"อนุมัติ" },
+  { id:7,  companyId:"2",  company:"บริษัท ณธรรศชาตรี จำกัด",                      buyerGroupId:"2", buyerUnit:"ศูนย์ฝึกอบรมตำรวจภูธรภาค 6",                                         regionId:"N",  weaponId:"P-0034", qty:25000,  date:"2568-02-22", status:"อนุมัติ" },
+  { id:8,  companyId:"2",  company:"บริษัท ณธรรศชาตรี จำกัด",                      buyerGroupId:"3", buyerUnit:"สมาคมกีฬายิงปืนหัวหิน",                                               regionId:"C",  weaponId:"P-0050", qty:3200,   date:"2568-03-14", status:"รอดำเนินการ" },
+  { id:9,  companyId:"2",  company:"บริษัท ณธรรศชาตรี จำกัด",                      buyerGroupId:"9", buyerUnit:"โรงเรียนนายร้อยตำรวจ",                                                regionId:"C",  weaponId:"P-0033", qty:8500,   date:"2568-04-25", status:"รอดำเนินการ" },
+  { id:10, companyId:"2",  company:"บริษัท ณธรรศชาตรี จำกัด",                      buyerGroupId:"0", buyerUnit:"-",                                                                     regionId:"E",  weaponId:"P-0031", qty:1800,   date:"2568-06-08", status:"อนุมัติ" },
+  { id:11, companyId:"3",  company:"บริษัท รอยัล แอมมูนิชั่น จำกัด",               buyerGroupId:"1", buyerUnit:"มณฑลทหารบกที่ 46 ค่ายอิงคยุทธบริหาร",                               regionId:"NE", weaponId:"P-0035", qty:180000, date:"2568-01-25", status:"อนุมัติ" },
+  { id:12, companyId:"3",  company:"บริษัท รอยัล แอมมูนิชั่น จำกัด",               buyerGroupId:"2", buyerUnit:"กองทะเบียนประวัติอาชญากร สำนักงานพิสูจน์หลักฐานตำรวจ สำนักงานตำรวจแห่งชาติ", regionId:"C", weaponId:"P-0034", qty:85000, date:"2568-02-10", status:"อนุมัติ" },
+  { id:13, companyId:"3",  company:"บริษัท รอยัล แอมมูนิชั่น จำกัด",               buyerGroupId:"3", buyerUnit:"สมาคมกีฬายิงปืนหัวหิน",                                               regionId:"S",  weaponId:"P-0036", qty:7200,   date:"2568-03-30", status:"อนุมัติ" },
+  { id:14, companyId:"3",  company:"บริษัท รอยัล แอมมูนิชั่น จำกัด",               buyerGroupId:"9", buyerUnit:"กรมราชทัณฑ์",                                                          regionId:"W",  weaponId:"P-0028", qty:4500,   date:"2568-05-05", status:"อนุมัติ" },
+  { id:15, companyId:"3",  company:"บริษัท รอยัล แอมมูนิชั่น จำกัด",               buyerGroupId:"0", buyerUnit:"-",                                                                     regionId:"N",  weaponId:"P-0027", qty:1200,   date:"2568-07-11", status:"กำลังดำเนินการ" },
+  { id:16, companyId:"4",  company:"บริษัท พี.วี.เอ็กซโพลซิฟ (ไทยแลนด์) จำกัด", buyerGroupId:"1", buyerUnit:"กองพลทหารปืนใหญ่ ค่ายพิลูลสงคราม",                                   regionId:"C",  weaponId:"P-0090", qty:15000,  date:"2568-02-01", status:"อนุมัติ" },
+  { id:17, companyId:"4",  company:"บริษัท พี.วี.เอ็กซโพลซิฟ (ไทยแลนด์) จำกัด", buyerGroupId:"2", buyerUnit:"ตำรวจภูธรจังหวัดน่าน",                                                 regionId:"S",  weaponId:"P-0160", qty:6000,   date:"2568-03-10", status:"อนุมัติ" },
+  { id:18, companyId:"4",  company:"บริษัท พี.วี.เอ็กซโพลซิฟ (ไทยแลนด์) จำกัด", buyerGroupId:"3", buyerUnit:"สมาคมยิงปืนเขาเขียวนครสวรรค์",                                        regionId:"W",  weaponId:"P-0160", qty:12000,  date:"2568-04-01", status:"อนุมัติ" },
+  { id:19, companyId:"4",  company:"บริษัท พี.วี.เอ็กซโพลซิฟ (ไทยแลนด์) จำกัด", buyerGroupId:"9", buyerUnit:"สำนักงานศาลยุติธรรม ศูนย์รักษาความปลอดภัย",                          regionId:"N",  weaponId:"P-0090", qty:1200,   date:"2568-07-15", status:"อนุมัติ" },
+  { id:20, companyId:"4",  company:"บริษัท พี.วี.เอ็กซโพลซิฟ (ไทยแลนด์) จำกัด", buyerGroupId:"0", buyerUnit:"-",                                                                     regionId:"NE", weaponId:"P-0161", qty:900,    date:"2568-08-20", status:"รอดำเนินการ" },
+  { id:21, companyId:"5",  company:"บริษัท อัสพรรณ เอ็กซ์โพลซีฟ จำกัด",          buyerGroupId:"1", buyerUnit:"กรมการทหารสื่อสารที่ 1 ค่ายกำแพงเพชรอัครโยธิน",                     regionId:"S",  weaponId:"P-0170", qty:22000,  date:"2568-01-30", status:"อนุมัติ" },
+  { id:22, companyId:"5",  company:"บริษัท อัสพรรณ เอ็กซ์โพลซีฟ จำกัด",          buyerGroupId:"2", buyerUnit:"ศูนย์ฝึกอบรมตำรวจภูธรภาค 9",                                         regionId:"C",  weaponId:"P-0171", qty:8000,   date:"2568-03-05", status:"อนุมัติ" },
+  { id:23, companyId:"5",  company:"บริษัท อัสพรรณ เอ็กซ์โพลซีฟ จำกัด",          buyerGroupId:"3", buyerUnit:"สมาคมยิงปืนเขาเขียวนครสวรรค์",                                        regionId:"E",  weaponId:"P-0160", qty:4500,   date:"2568-04-18", status:"กำลังดำเนินการ" },
+  { id:24, companyId:"5",  company:"บริษัท อัสพรรณ เอ็กซ์โพลซีฟ จำกัด",          buyerGroupId:"9", buyerUnit:"กรมสอบสวนคดีพิเศษ",                                                    regionId:"N",  weaponId:"P-0161", qty:2800,   date:"2568-06-22", status:"อนุมัติ" },
+  { id:25, companyId:"5",  company:"บริษัท อัสพรรณ เอ็กซ์โพลซีฟ จำกัด",          buyerGroupId:"0", buyerUnit:"-",                                                                     regionId:"S",  weaponId:"P-0161", qty:3200,   date:"2568-05-02", status:"อนุมัติ" },
+  { id:26, companyId:"6",  company:"บริษัท บุลเล็ท มาสเตอร์ จำกัด",               buyerGroupId:"1", buyerUnit:"มณฑลทหารบกที่ 15 ค่ายรามราชนิเวศน์",                                 regionId:"NE", weaponId:"P-0035", qty:320000, date:"2568-01-08", status:"อนุมัติ" },
+  { id:27, companyId:"6",  company:"บริษัท บุลเล็ท มาสเตอร์ จำกัด",               buyerGroupId:"2", buyerUnit:"ตำรวจภูธรจังหวัดเชียงราย",                                            regionId:"C",  weaponId:"P-0034", qty:75000,  date:"2568-02-28", status:"กำลังดำเนินการ" },
+  { id:28, companyId:"6",  company:"บริษัท บุลเล็ท มาสเตอร์ จำกัด",               buyerGroupId:"3", buyerUnit:"สมาคมกีฬายิงปืนหัวหิน",                                               regionId:"N",  weaponId:"P-0036", qty:9500,   date:"2568-04-10", status:"อนุมัติ" },
+  { id:29, companyId:"6",  company:"บริษัท บุลเล็ท มาสเตอร์ จำกัด",               buyerGroupId:"9", buyerUnit:"กองบัญชาการตำรวจปราบปรามยาเสพติด สำนักงานตำรวจแห่งชาติ",            regionId:"W",  weaponId:"P-0034", qty:5200,   date:"2568-06-14", status:"อนุมัติ" },
+  { id:30, companyId:"6",  company:"บริษัท บุลเล็ท มาสเตอร์ จำกัด",               buyerGroupId:"0", buyerUnit:"-",                                                                     regionId:"S",  weaponId:"P-0035", qty:2400,   date:"2568-08-01", status:"อนุมัติ" },
+  { id:31, companyId:"7",  company:"บริษัท ใช้ เอ็กซ์โพลซีฟส์ จำกัด",            buyerGroupId:"1", buyerUnit:"กองพลทหารม้าที่ 2 รักษาพระองค์",                                     regionId:"S",  weaponId:"P-0036", qty:95000,  date:"2568-02-05", status:"อนุมัติ" },
+  { id:32, companyId:"7",  company:"บริษัท ใช้ เอ็กซ์โพลซีฟส์ จำกัด",            buyerGroupId:"2", buyerUnit:"ตำรวจภูธรจังหวัดชัยภูมิ ภายในศูนย์ราชการ",                          regionId:"E",  weaponId:"P-0035", qty:38000,  date:"2568-03-12", status:"อนุมัติ" },
+  { id:33, companyId:"7",  company:"บริษัท ใช้ เอ็กซ์โพลซีฟส์ จำกัด",            buyerGroupId:"3", buyerUnit:"สมาคมยิงปืนเขาเขียวนครสวรรค์",                                        regionId:"C",  weaponId:"P-0034", qty:6800,   date:"2568-05-20", status:"กำลังดำเนินการ" },
+  { id:34, companyId:"7",  company:"บริษัท ใช้ เอ็กซ์โพลซีฟส์ จำกัด",            buyerGroupId:"9", buyerUnit:"ศูนย์รักษาความปลอดภัย กองบัญชาการกองทัพไทย",                        regionId:"NE", weaponId:"P-0063", qty:3100,   date:"2568-07-08", status:"อนุมัติ" },
+  { id:35, companyId:"7",  company:"บริษัท ใช้ เอ็กซ์โพลซีฟส์ จำกัด",            buyerGroupId:"0", buyerUnit:"-",                                                                     regionId:"N",  weaponId:"P-0033", qty:1500,   date:"2568-08-15", status:"อนุมัติ" },
+  { id:36, companyId:"8",  company:"บริษัท ไทยอามส์ จำกัด",                        buyerGroupId:"1", buyerUnit:"กรมสรรพาวุธทหารบก",                                                   regionId:"S",  weaponId:"P-0035", qty:410000, date:"2568-01-15", status:"อนุมัติ" },
+  { id:37, companyId:"8",  company:"บริษัท ไทยอามส์ จำกัด",                        buyerGroupId:"2", buyerUnit:"กองบังคับการตำรวจนครบาล 9",                                          regionId:"C",  weaponId:"P-0034", qty:92000,  date:"2568-02-20", status:"อนุมัติ" },
+  { id:38, companyId:"8",  company:"บริษัท ไทยอามส์ จำกัด",                        buyerGroupId:"3", buyerUnit:"สมาคมกีฬายิงปืนหัวหิน",                                               regionId:"N",  weaponId:"P-0036", qty:14000,  date:"2568-03-25", status:"อนุมัติ" },
+  { id:39, companyId:"8",  company:"บริษัท ไทยอามส์ จำกัด",                        buyerGroupId:"9", buyerUnit:"กรมการสารวัตรทหารบก",                                                 regionId:"NE", weaponId:"P-0060", qty:7500,   date:"2568-05-18", status:"อนุมัติ" },
+  { id:40, companyId:"8",  company:"บริษัท ไทยอามส์ จำกัด",                        buyerGroupId:"0", buyerUnit:"-",                                                                     regionId:"E",  weaponId:"P-0034", qty:3800,   date:"2568-07-22", status:"กำลังดำเนินการ" },
+  { id:41, companyId:"14", company:"บริษัท สยาม แอมมูนิชั่น จำกัด",               buyerGroupId:"1", buyerUnit:"มณฑลทหารบกที่ 39 ค่ายสมเด็จพระนเรศวรมหาราช",                       regionId:"C",  weaponId:"P-0035", qty:125000, date:"2568-01-22", status:"อนุมัติ" },
+  { id:42, companyId:"14", company:"บริษัท สยาม แอมมูนิชั่น จำกัด",               buyerGroupId:"2", buyerUnit:"กองบัญชาการตำรวจนครบาล สำนักงานตำรวจแห่งชาติ",                     regionId:"E",  weaponId:"P-0034", qty:65000,  date:"2568-03-18", status:"กำลังดำเนินการ" },
+  { id:43, companyId:"14", company:"บริษัท สยาม แอมมูนิชั่น จำกัด",               buyerGroupId:"3", buyerUnit:"สมาคมยิงปืนเขาเขียวนครสวรรค์",                                        regionId:"W",  weaponId:"P-0036", qty:8200,   date:"2568-05-08", status:"อนุมัติ" },
+  { id:44, companyId:"14", company:"บริษัท สยาม แอมมูนิชั่น จำกัด",               buyerGroupId:"9", buyerUnit:"วิทยาลัยการตำรวจ กองบัญชาการศึกษา",                                  regionId:"S",  weaponId:"P-0034", qty:4100,   date:"2568-07-02", status:"อนุมัติ" },
+  { id:45, companyId:"14", company:"บริษัท สยาม แอมมูนิชั่น จำกัด",               buyerGroupId:"0", buyerUnit:"-",                                                                     regionId:"N",  weaponId:"P-0035", qty:1900,   date:"2568-08-10", status:"อนุมัติ" },
+  { id:46, companyId:"15", company:"บริษัท ไทย ทรัพย์นคร จำกัด",                  buyerGroupId:"1", buyerUnit:"กองพันทหารราบที่ 1 กรมทหารราบที่ 23 ค่ายสุรธรรมพิทักษ์",           regionId:"NE", weaponId:"P-0035", qty:88000,  date:"2568-02-08", status:"อนุมัติ" },
+  { id:47, companyId:"15", company:"บริษัท ไทย ทรัพย์นคร จำกัด",                  buyerGroupId:"2", buyerUnit:"ตำรวจภูธรจังหวัดกาญจนบุรี",                                          regionId:"N",  weaponId:"P-0028", qty:22000,  date:"2568-04-14", status:"อนุมัติ" },
+  { id:48, companyId:"15", company:"บริษัท ไทย ทรัพย์นคร จำกัด",                  buyerGroupId:"3", buyerUnit:"สมาคมยิงปืนเขาเขียวนครสวรรค์",                                        regionId:"C",  weaponId:"P-0031", qty:5500,   date:"2568-06-01", status:"อนุมัติ" },
+  { id:49, companyId:"15", company:"บริษัท ไทย ทรัพย์นคร จำกัด",                  buyerGroupId:"9", buyerUnit:"กองบังคับการฝึกอบรมตำรวจกลาง",                                       regionId:"E",  weaponId:"P-0033", qty:2900,   date:"2568-07-18", status:"กำลังดำเนินการ" },
+  { id:50, companyId:"15", company:"บริษัท ไทย ทรัพย์นคร จำกัด",                  buyerGroupId:"0", buyerUnit:"-",                                                                     regionId:"W",  weaponId:"P-0027", qty:1100,   date:"2568-08-25", status:"อนุมัติ" },
 ];
 
 const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
@@ -260,6 +294,7 @@ export function Page1Overview() {
 
   /* chart interaction */
   const [activePieIndex, setActivePieIndex] = useState<number | undefined>(undefined);
+  const [lockedPieIndex, setLockedPieIndex] = useState<number | undefined>(undefined);
   const [activeBarIndex, setActiveBarIndex] = useState<number | undefined>(undefined);
   const [hiddenCompanies, setHiddenCompanies] = useState<Set<string>>(new Set());
   const [hiddenBuyers,    setHiddenBuyers]    = useState<Set<string>>(new Set());
@@ -310,6 +345,121 @@ export function Page1Overview() {
 
   const totalQty = rows.reduce((s, r) => s + r.qty, 0);
 
+  const formatThaiDate = (iso: string) => {
+    const [y, m, d] = iso.split("-");
+    return `${d}/${m}/${y}`;
+  };
+  const addMonths = (iso: string, n: number) => {
+    const [y, m, d] = iso.split("-").map(Number);
+    const dt = new Date(y - 543, m - 1 + n, d);
+    const ny = dt.getFullYear() + 543;
+    const nm = String(dt.getMonth() + 1).padStart(2, "0");
+    const nd = String(dt.getDate()).padStart(2, "0");
+    return `${nd}/${nm}/${ny}`;
+  };
+
+  const exportRawExcel = () => {
+    const headers = [
+      "เลขที่หนังสือ","วันที่อนุญาต","วันที่หมดอายุ","ผู้ประกอบการ",
+      "กลุ่มหน่วยผู้ซื้อ","หน่วยผู้ซื้อ",
+      "สถานที่ต้นทาง","บ้านเลขที่สถานที่ต้นทาง","อาคารสถานที่ต้นทาง","หมู่ที่สถานที่ต้นทาง",
+      "ซอยสถานที่ต้นทาง","ถนนสถานที่ต้นทาง","ตำบลสถานที่ต้นทาง","อำเภอสถานที่ต้นทาง",
+      "จังหวัดสถานที่ต้นทาง","รหัสไปรษณีย์สถานที่ต้นทาง",
+      "สถานที่ปลายทาง","บ้านเลขที่สถานที่ปลายทาง","อาคารสถานที่ปลายทาง","หมู่ที่สถานที่ปลายทาง",
+      "ซอยสถานที่ปลายทาง","ถนนสถานที่ปลายทาง","ตำบลสถานที่ปลายทาง","อำเภอสถานที่ปลายทาง",
+      "จังหวัดสถานที่ปลายทาง","รหัสไปรษณีย์สถานที่ปลายทาง",
+      "รหัสอาวุธ","ชื่ออาวุธ","จำนวน","หน่วยนับ",
+    ];
+    const dataRows = rows.map((r, i) => [
+      `${String(i + 1).padStart(3, "0")}/${r.date.split("-")[0]}`,
+      formatThaiDate(r.date),
+      addMonths(r.date, 3),
+      r.company,
+      BUYER_GROUPS.find((b) => b.id === r.buyerGroupId)?.label ?? "",
+      r.buyerUnit,
+      r.company, "", null, null, null, null, null, null, null, null,
+      r.buyerUnit, "-", null, null, null, null, null, null, null, null,
+      r.weaponId,
+      WEAPONS.find((w) => w.id === r.weaponId)?.label ?? r.weaponId,
+      r.qty,
+      "นัด",
+    ]);
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
+    ws["!cols"] = headers.map((_, i) => ({ wch: [14,14,14,40,18,60,40,10,10,8,10,20,14,16,14,8,60,10,10,8,10,20,14,16,14,8,12,40,10,8][i] ?? 12 }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "ข้อมูลดิบ");
+    XLSX.writeFile(wb, "ข้อมูลดิบยอดขายกระสุนปืน.xlsx");
+  };
+
+  const exportSummaryExcel = () => {
+    const exportData = rows.map((r, i) => ({
+      "#": i + 1,
+      "ผู้ประกอบการ": r.company,
+      "กลุ่มหน่วยผู้ซื้อ": BUYER_GROUPS.find((b) => b.id === r.buyerGroupId)?.label ?? "",
+      "หน่วยผู้ซื้อ": r.buyerUnit,
+      "อาวุธ/กระสุน": WEAPONS.find((w) => w.id === r.weaponId)?.label ?? r.weaponId,
+      "จำนวน(นัด)": r.qty,
+    }));
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    ws["!cols"] = [{ wch: 5 }, { wch: 40 }, { wch: 18 }, { wch: 60 }, { wch: 40 }, { wch: 14 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "สรุปยอดขาย");
+    XLSX.writeFile(wb, "สรุปยอดขายกระสุนปืน.xlsx");
+  };
+
+  const getBuyerLabel = (id: string) => BUYER_GROUPS.find((b) => b.id === id)?.label ?? "";
+  const getRegionLabel = (id: string) => REGIONS.find((r) => r.id === id)?.label ?? "";
+  const getWeaponLabel = (id: string) => WEAPONS.find((w) => w.id === id)?.label ?? id;
+
+  const tableData = rows.map((r) => ({
+    ...r,
+    key: r.id,
+    buyerGroupLabel: getBuyerLabel(r.buyerGroupId),
+    regionLabel: getRegionLabel(r.regionId),
+    weaponLabel: getWeaponLabel(r.weaponId),
+    dateFormatted: r.date.replace(/(\d{4})-(\d{2})-(\d{2})/, "$3/$2/$1"),
+  }));
+
+  type TableRow = (typeof tableData)[0];
+
+  const getColSearchProps = (dataIndex: keyof TableRow, placeholder: string): Partial<TableColumnsType<TableRow>[0]> => ({
+    filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
+      <div style={{ padding: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+        <input
+          placeholder={`ค้นหา ${placeholder}`}
+          value={selectedKeys[0] as string ?? ""}
+          onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+          onPressEnter={() => confirm()}
+          style={{ height: 32, padding: "0 10px", fontSize: 13, border: "1px solid #C7D2FE", borderRadius: 6, outline: "none", width: 220 }}
+          autoFocus
+        />
+        <div style={{ display: "flex", gap: 6 }}>
+          <button onClick={() => confirm()} style={{ flex: 1, height: 30, background: PRIMARY, color: "#fff", border: "none", borderRadius: 6, fontSize: 12, cursor: "pointer" }}>ค้นหา</button>
+          <button onClick={() => { clearFilters?.(); confirm(); }} style={{ flex: 1, height: 30, background: "#F9FAFB", border: "1px solid #D1D5DB", borderRadius: 6, fontSize: 12, cursor: "pointer", color: "#6B7280" }}>รีเซ็ต</button>
+        </div>
+      </div>
+    ),
+    filterIcon: (filtered: boolean) => <Search size={13} color={filtered ? PRIMARY : "#C0C4CC"} />,
+    onFilter: (value, record) => String(record[dataIndex]).toLowerCase().includes(String(value).toLowerCase()),
+  });
+
+  const antColumns: TableColumnsType<TableRow> = [
+    { title: "#", key: "no", width: 52, render: (_: unknown, __: TableRow, i: number) => i + 1 },
+    { title: "ผู้ประกอบการ", dataIndex: "company", key: "company", sorter: (a, b) => a.company.localeCompare(b.company, "th"), ...getColSearchProps("company", "ผู้ประกอบการ") },
+    { title: "กลุ่มหน่วยผู้ซื้อ", dataIndex: "buyerGroupLabel", key: "buyerGroup", width: 160, sorter: (a, b) => a.buyerGroupLabel.localeCompare(b.buyerGroupLabel, "th"), ...getColSearchProps("buyerGroupLabel", "กลุ่มหน่วยผู้ซื้อ") },
+    { title: "หน่วยผู้ซื้อ", dataIndex: "buyerUnit", key: "buyerUnit", sorter: (a, b) => a.buyerUnit.localeCompare(b.buyerUnit, "th"), ...getColSearchProps("buyerUnit", "หน่วยผู้ซื้อ") },
+    { title: "อาวุธ/กระสุน", dataIndex: "weaponLabel", key: "weapon", sorter: (a, b) => a.weaponLabel.localeCompare(b.weaponLabel, "th"), ...getColSearchProps("weaponLabel", "อาวุธ/กระสุน") },
+    { title: "จำนวน(นัด)", dataIndex: "qty", key: "qty", width: 130, align: "right" as const, sorter: (a, b) => a.qty - b.qty, render: (v: number) => <span style={{ color: PRIMARY, fontWeight: 600 }}>{v.toLocaleString()}</span> },
+  ];
+
+  const antTableProps: TableProps<TableRow> = {
+    columns: antColumns,
+    dataSource: tableData,
+    size: "middle",
+    pagination: { pageSize: 10, showSizeChanger: true, pageSizeOptions: ["10","20","50"], showTotal: (total, range) => `${range[0]}-${range[1]} จาก ${total} รายการ`, locale: { items_per_page: "/หน้า", jump_to: "ไปที่", page: "หน้า" } },
+    scroll: { x: 1200 },
+  };
+
   /* bar chart — all companies always shown */
   const chartMap: Record<string, { id: string; name: string; qty: number }> = {};
   COMPANIES.forEach((c) => { chartMap[c.id] = { id: c.id, name: c.name, qty: 0 }; });
@@ -347,14 +497,6 @@ export function Page1Overview() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
           <div style={{ fontSize: 20, fontWeight: 700, color: "#0E1119" }}>รายงานยอดขายกระสุนปืนให้หน่วยงานตามมาตรา 7</div>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button style={{ display: "flex", alignItems: "center", gap: 6, height: 38, padding: "0 16px", fontSize: 13, border: "1px solid #D1D5DB", borderRadius: 8, background: "#fff", color: "#374151", cursor: "pointer" }}>
-            <FileSpreadsheet size={15} color="#059669" />Export Excel
-          </button>
-          <button style={{ display: "flex", alignItems: "center", gap: 6, height: 38, padding: "0 16px", fontSize: 13, border: "1px solid #D1D5DB", borderRadius: 8, background: "#fff", color: "#374151", cursor: "pointer" }}>
-            <FileText size={15} color="#DC2626" />Export PDF
-          </button>
         </div>
       </div>
 
@@ -496,10 +638,15 @@ export function Page1Overview() {
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
               <Pie data={buyerPieData} cx="50%" cy="50%" innerRadius={52} outerRadius={85} paddingAngle={3} dataKey="value"
-                activeIndex={activePieIndex}
+                activeIndex={lockedPieIndex ?? activePieIndex}
                 activeShape={renderActiveShape as Parameters<typeof Pie>[0]["activeShape"]}
-                onMouseEnter={(_: unknown, index: number) => setActivePieIndex(index)}
-                onMouseLeave={() => setActivePieIndex(undefined)}>
+                onMouseEnter={(_: unknown, index: number) => { if (lockedPieIndex === undefined) setActivePieIndex(index); }}
+                onMouseLeave={() => { if (lockedPieIndex === undefined) setActivePieIndex(undefined); }}
+                onClick={(_: unknown, index: number) => {
+                  setLockedPieIndex((prev) => prev === index ? undefined : index);
+                  setActivePieIndex(undefined);
+                }}
+                cursor="pointer">
                 {buyerPieData.map((d, i) => <Cell key={i} fill={d.color} />)}
               </Pie>
             </PieChart>
@@ -543,43 +690,25 @@ export function Page1Overview() {
       {/* Table */}
       <div style={{ background: "#fff", borderRadius: 16, boxShadow: "0 1px 3px rgba(15,23,42,0.08)", overflow: "hidden" }}>
         <div style={{ padding: "14px 20px", borderBottom: "1px solid #F0F0F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>รายละเอียดรายการขาย/จำหน่าย</span>
-          <span style={{ fontSize: 12, color: "#8B8E95" }}>ทั้งหมด {rows.length} รายการ · รวม {totalQty.toLocaleString()} นัด</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>รายการยอดขายกระสุนปืนให้หน่วยงานตามมาตรา 7</span>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button style={{ display: "flex", alignItems: "center", gap: 6, height: 36, padding: "0 14px", fontSize: 13, border: "1px solid #D1D5DB", borderRadius: 8, background: "#fff", color: "#374151", cursor: "pointer" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#F9FAFB"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#fff"; }}
+              onClick={exportRawExcel}>
+              <FileSpreadsheet size={15} color="#059669" />Export ดิบ (Excel)
+            </button>
+            <button style={{ display: "flex", alignItems: "center", gap: 6, height: 36, padding: "0 14px", fontSize: 13, border: "1px solid #D1D5DB", borderRadius: 8, background: "#fff", color: "#374151", cursor: "pointer" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#F9FAFB"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#fff"; }}
+              onClick={exportSummaryExcel}>
+              <FileSpreadsheet size={15} color="#2563EB" />Export สรุป (Excel)
+            </button>
+          </div>
         </div>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
-            <thead>
-              <tr style={{ borderBottom: "1px solid #F0F0F0" }}>
-                {["#", "ผู้ประกอบการ", "กลุ่มผู้ซื้อ", "ภาค", "อาวุธ/กระสุน", "จำนวน (นัด)", "วันที่อนุญาต", "สถานะ"].map((h) => (
-                  <th key={h} style={{ padding: "12px 14px", textAlign: "left", fontSize: 13, fontWeight: 700, color: "rgba(0,0,0,0.88)", background: "#fff", whiteSpace: "nowrap" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr><td colSpan={8} style={{ padding: "40px", textAlign: "center", color: "#9CA3AF", fontSize: 13 }}>ไม่พบข้อมูล</td></tr>
-              ) : rows.map((r, i) => {
-                const st = STATUS_STYLE[r.status] ?? { bg: "#F3F4F6", color: "#6B7280" };
-                return (
-                  <tr key={r.id} style={{ borderBottom: "1px solid #F9FAFB" }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = "#F9FAFB"; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = ""; }}>
-                    <td style={{ padding: "12px 14px", fontSize: 13, color: "#9CA3AF", width: 40 }}>{i + 1}</td>
-                    <td style={{ padding: "12px 14px", fontSize: 13, color: "#0E1119", fontWeight: 500 }}>{r.company}</td>
-                    <td style={{ padding: "12px 14px", fontSize: 13, color: "#374151" }}>{BUYER_GROUPS.find((b) => b.id === r.buyerGroupId)?.label ?? "-"}</td>
-                    <td style={{ padding: "12px 14px", fontSize: 13, color: "#374151" }}>{REGIONS.find((rg) => rg.id === r.regionId)?.label ?? "-"}</td>
-                    <td style={{ padding: "12px 14px", fontSize: 13, color: "#374151" }}>{WEAPONS.find((w) => w.id === r.weaponId)?.label ?? r.weaponId}</td>
-                    <td style={{ padding: "12px 14px", fontSize: 13, color: PRIMARY, fontWeight: 600, textAlign: "right" }}>{r.qty.toLocaleString()}</td>
-                    <td style={{ padding: "12px 14px", fontSize: 13, color: "#6B7280", whiteSpace: "nowrap" }}>{r.date}</td>
-                    <td style={{ padding: "12px 14px" }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600, background: st.bg, color: st.color }}>{r.status}</span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <ConfigProvider theme={{ token: { colorPrimary: PRIMARY, fontFamily: FF, fontSize: 13 } }}>
+          <Table {...antTableProps} style={{ fontFamily: FF }} />
+        </ConfigProvider>
       </div>
 
     </div>
