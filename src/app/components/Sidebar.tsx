@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, BarChart2 } from "lucide-react";
+import { ChevronDown, ChevronRight, BarChart2, FileText, Building2 } from "lucide-react";
 
 function HomeIcon({ size = 18 }: { size?: number }) {
   return (
@@ -20,7 +20,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ activePage, onPageChange }: SidebarProps) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+  const [expandedRequest, setExpandedRequest] = useState(false);
 
   const reports = [
     { id: 1, label: "รายงาน#1 ภาพรวม" },
@@ -54,7 +55,7 @@ export function Sidebar({ activePage, onPageChange }: SidebarProps) {
         {/* หน้าหลัก — always highlighted, ≡ on right */}
         <button
           onClick={() => onPageChange(0)}
-          style={{ fontSize: 16, fontWeight: 500, color: "#fff", background: "transparent", padding: "0 20px", height: 52, marginTop: 24, display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", border: "none", cursor: "pointer" }}
+          style={{ fontSize: 16, fontWeight: 500, color: "#fff", background: isActive(0) ? ACTIVE_BG : "transparent", padding: "0 20px", height: 52, marginTop: 24, display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", border: "none", cursor: "pointer" }}
         >
           <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <HomeIcon size={18} />
@@ -63,12 +64,58 @@ export function Sidebar({ activePage, onPageChange }: SidebarProps) {
           <span style={{ fontSize: 18, color: MENU_COLOR, lineHeight: 1 }}>≡</span>
         </button>
 
-        {/* Section label */}
-        <div style={{ fontSize: 12, color: "#fff", padding: "10px 20px" }}>
+        {/* Section: ระบบคำขอ */}
+        <div style={{ fontSize: 12, color: "#fff", padding: "10px 20px", marginTop: 4 }}>
+          ระบบคำขอ
+        </div>
+
+        {/* คำขออนุญาต accordion */}
+        <button
+          onClick={() => setExpandedRequest(!expandedRequest)}
+          style={{ ...itemStyle(-2), background: "transparent", justifyContent: "space-between" }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+        >
+          <span style={{ display: "flex", alignItems: "center", gap: 10 }}><FileText size={16} />คำขออนุญาต</span>
+          {expandedRequest ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+        </button>
+
+        {expandedRequest && [
+          "คำขออนุญาตผลิตเฉพาะส่วนประกอบของอาวุธเป็นการเฉพาะคราว แบบ อ.6",
+          "คำขออนุญาตสั่งหรือนำเข้ามาในราชอาณาจักรซึ่งวัตถุหรืออาวุธ แบบ อ.4",
+          "คำขออนุญาตขนย้ายวัตถุหรืออาวุธที่ใช้ในการผลิตอาวุธหรืออาวุธที่ผลิตขึ้นฯ แบบ อ.9",
+          "คำขออนุญาตขายหรือจำหน่ายอาวุธฯ นอกราชอาณาจักร แบบ อ.14",
+          "คำขออนุญาตขายหรือจำหน่ายอาวุธฯ ในราชอาณาจักร แบบ อ.15",
+        ].map((label) => (
+          <button
+            key={label}
+            style={{ ...itemStyle(-3), paddingLeft: 36, fontSize: 12, height: "auto", minHeight: 40, whiteSpace: "normal", lineHeight: 1.4, paddingTop: 8, paddingBottom: 8 }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+          >
+            {label}
+          </button>
+        ))}
+
+        {/* Section: ระบบ */}
+        <div style={{ fontSize: 12, color: "#fff", padding: "10px 20px", marginTop: 4 }}>
+          ระบบ
+        </div>
+
+        {/* ข้อมูลผู้ประกอบการ รง.4 */}
+        <button
+          style={{ ...itemStyle(-4), background: "transparent", justifyContent: "flex-start" }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+        >
+          <span style={{ display: "flex", alignItems: "center", gap: 10 }}><Building2 size={16} />ข้อมูลผู้ประกอบการ รง.4</span>
+        </button>
+
+        {/* Section: ระบบรายงาน (ล่างสุด) */}
+        <div style={{ fontSize: 12, color: "#fff", padding: "10px 20px", marginTop: 4 }}>
           ระบบรายงาน
         </div>
 
-        {/* Reports accordion */}
         <button
           onClick={() => setExpanded(!expanded)}
           style={{ ...itemStyle(-1), background: "transparent", justifyContent: "space-between" }}
