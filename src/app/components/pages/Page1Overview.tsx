@@ -271,20 +271,33 @@ export function Page1Overview() {
   const [copiedBar, setCopiedBar] = useState(false);
   const [copiedPie, setCopiedPie] = useState(false);
 
-  const downloadPNG = async (ref: React.RefObject<HTMLDivElement>, filename: string) => {
-    if (!ref.current) return;
-    const { toPng } = await import("html-to-image");
-    const url = await toPng(ref.current, { pixelRatio: 2, backgroundColor: "#ffffff" });
-    const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
+  const captureChart = async (ref: React.RefObject<HTMLDivElement>, fn: (el: HTMLDivElement) => Promise<void>) => {
+    const el = ref.current;
+    if (!el) return;
+    const hidden = el.querySelectorAll<HTMLElement>("[data-capture-hide]");
+    const shown  = el.querySelectorAll<HTMLElement>("[data-capture-show]");
+    hidden.forEach((n) => { n.dataset.origDisplay = n.style.display; n.style.display = "none"; });
+    shown.forEach((n)  => { n.dataset.origDisplay = n.style.display; n.style.display = "block"; });
+    await fn(el);
+    hidden.forEach((n) => { n.style.display = n.dataset.origDisplay ?? ""; });
+    shown.forEach((n)  => { n.style.display = n.dataset.origDisplay ?? "none"; });
   };
-  const copyPNG = async (ref: React.RefObject<HTMLDivElement>, setCopied: (v: boolean) => void) => {
-    if (!ref.current) return;
-    const { toBlob } = await import("html-to-image");
-    const blob = await toBlob(ref.current, { pixelRatio: 2, backgroundColor: "#ffffff" });
-    if (!blob) return;
-    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-    setCopied(true); setTimeout(() => setCopied(false), 2000);
-  };
+
+  const downloadPNG = (ref: React.RefObject<HTMLDivElement>, filename: string) =>
+    captureChart(ref, async (el) => {
+      const { toPng } = await import("html-to-image");
+      const url = await toPng(el, { pixelRatio: 2, backgroundColor: "#ffffff" });
+      const a = document.createElement("a"); a.href = url; a.download = filename; a.click();
+    });
+
+  const copyPNG = (ref: React.RefObject<HTMLDivElement>, setCopied: (v: boolean) => void) =>
+    captureChart(ref, async (el) => {
+      const { toBlob } = await import("html-to-image");
+      const blob = await toBlob(el, { pixelRatio: 2, backgroundColor: "#ffffff" });
+      if (!blob) return;
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      setCopied(true); setTimeout(() => setCopied(false), 2000);
+    });
 
   /* filtered rows */
   const rows = MOCK_ROWS.filter((r) => {
@@ -330,11 +343,10 @@ export function Page1Overview() {
     <div style={{ fontFamily: FF }}>
 
       {/* Header */}
-      <div style={{ fontSize: 12, color: "#8B8E95", marginBottom: 4 }}>ระบบรายงาน / รายงาน#1</div>
+      <div style={{ fontSize: 12, color: "#8B8E95", marginBottom: 4 }}>ระบบรายงาน / รายงาน</div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: "#0E1119" }}>ภาพรวมการขาย/จำหน่ายอาวุธและกระสุน</div>
-          <div style={{ fontSize: 13, color: "#8B8E95", marginTop: 4 }}>สรุปปริมาณกระสุนและอาวุธที่จำหน่ายแยกตามผู้ประกอบการ กลุ่มหน่วยผู้ซื้อ และภาค</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: "#0E1119" }}>รายงานยอดขายกระสุนปืนให้หน่วยงานตามมาตรา 7</div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button style={{ display: "flex", alignItems: "center", gap: 6, height: 38, padding: "0 16px", fontSize: 13, border: "1px solid #D1D5DB", borderRadius: 8, background: "#fff", color: "#374151", cursor: "pointer" }}>
@@ -404,13 +416,16 @@ export function Page1Overview() {
       </div>
 
       {/* Charts */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 16, marginBottom: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, marginBottom: 16 }}>
 
         {/* Bar chart */}
         <div ref={barChartRef} style={{ background: "#fff", borderRadius: 16, padding: 20, boxShadow: "0 1px 3px rgba(15,23,42,0.08)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>แยกตามผู้ประกอบการ (นัด)</div>
-            <div style={{ display: "flex", gap: 6 }}>
+            <div>
+              <div data-capture-show style={{ display: "none", fontSize: 14, fontWeight: 600, color: "#0E1119", marginBottom: 2 }}>ยอดขายกระสุนปืนให้หน่วยงานตามมาตรา 7</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>แยกตามผู้ประกอบการ (นัด)</div>
+            </div>
+            <div data-capture-hide style={{ display: "flex", gap: 6 }}>
               <button onClick={() => copyPNG(barChartRef, setCopiedBar)}
                 style={{ display: "flex", alignItems: "center", gap: 4, height: 30, padding: "0 10px", fontSize: 12, border: "1px solid #E5E7EB", borderRadius: 7, background: "#fff", color: copiedBar ? "#059669" : "#6B7280", cursor: "pointer" }}>
                 {copiedBar ? <Check size={13} /> : <Copy size={13} />}{copiedBar ? "คัดลอกแล้ว" : "Copy"}
@@ -439,7 +454,7 @@ export function Page1Overview() {
             </BarChart>
           </ResponsiveContainer>
           {/* Toggle chips */}
-          <div style={{ marginTop: 14, borderTop: "1px solid #F3F4F6", paddingTop: 12 }}>
+          <div data-capture-hide style={{ marginTop: 14, borderTop: "1px solid #F3F4F6", paddingTop: 12 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
               <span style={{ fontSize: 11, color: "#8B8E95", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>แสดง/ซ่อน ผู้ประกอบการ</span>
               {hiddenCompanies.size > 0 && (
@@ -463,8 +478,11 @@ export function Page1Overview() {
         {/* Pie chart */}
         <div ref={pieChartRef} style={{ background: "#fff", borderRadius: 16, padding: 20, boxShadow: "0 1px 3px rgba(15,23,42,0.08)", display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>แยกตามกลุ่มหน่วยผู้ซื้อ</div>
-            <div style={{ display: "flex", gap: 6 }}>
+            <div>
+              <div data-capture-show style={{ display: "none", fontSize: 14, fontWeight: 600, color: "#0E1119", marginBottom: 2 }}>ยอดขายกระสุนปืนให้หน่วยงานตามมาตรา 7</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>แยกตามกลุ่มหน่วยผู้ซื้อ (นัด)</div>
+            </div>
+            <div data-capture-hide style={{ display: "flex", gap: 6 }}>
               <button onClick={() => copyPNG(pieChartRef, setCopiedPie)}
                 style={{ display: "flex", alignItems: "center", gap: 4, height: 28, padding: "0 9px", fontSize: 11, border: "1px solid #E5E7EB", borderRadius: 7, background: "#fff", color: copiedPie ? "#059669" : "#6B7280", cursor: "pointer" }}>
                 {copiedPie ? <Check size={12} /> : <Copy size={12} />}{copiedPie ? "คัดลอกแล้ว" : "Copy"}
@@ -500,7 +518,7 @@ export function Page1Overview() {
             })}
           </div>
           {/* Toggle chips */}
-          <div style={{ marginTop: 12, borderTop: "1px solid #F3F4F6", paddingTop: 12 }}>
+          <div data-capture-hide style={{ marginTop: 12, borderTop: "1px solid #F3F4F6", paddingTop: 12 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
               <span style={{ fontSize: 11, color: "#8B8E95", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>แสดง/ซ่อน กลุ่ม</span>
               {hiddenBuyers.size > 0 && (

@@ -24,7 +24,7 @@ export function Sidebar({ activePage, onPageChange }: SidebarProps) {
   const [expandedRequest, setExpandedRequest] = useState(false);
 
   const reports = [
-    { id: 1, label: "รายงาน#1 ภาพรวม" },
+    { id: 1, label: "รายงานยอดขายกระสุนปืนให้หน่วยงานตามมาตรา 7" },
     { id: 2, label: "รายงาน#2 รายบริษัท" },
     { id: 3, label: "รายงาน#3 ประเภทกระสุน" },
     { id: 4, label: "รายงาน#4 ปลายทาง" },
