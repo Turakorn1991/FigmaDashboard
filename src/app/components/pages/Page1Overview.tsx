@@ -755,7 +755,7 @@ export function Page1Overview() {
       <div style={{ background: "#fff", borderRadius: 16, padding: 24, boxShadow: "0 1px 3px rgba(15,23,42,0.08)", marginBottom: 16 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "#0E1119", marginBottom: 16 }}>ค้นหาข้อมูล</div>
 
-        {/* Row 1: วันที่เริ่ม 1/4 | วันที่สิ้นสุด 1/4 | ผู้ประกอบการ 2/4 */}
+        {/* Row 1: วันที่อนุญาต เริ่มเริ่ม 1/4 | วันที่อนุญาต เริ่มสิ้นสุด 1/4 | ผู้ประกอบการ 2/4 */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: 12, marginBottom: 12 }}>
           <div>
             <label style={LBL}>วันที่อนุญาต เริ่ม</label>
