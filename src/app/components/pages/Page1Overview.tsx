@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Search, FileSpreadsheet, FileText, ChevronDown, X, Download, Copy, Check } from "lucide-react";
+import { Search, FileSpreadsheet, FileText, ChevronDown, X, Download, Copy, Check, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Sector } from "recharts";
 import { Table, ConfigProvider } from "antd";
 import type { TableColumnsType, TableProps } from "antd";
@@ -111,13 +111,77 @@ const WEAPONS = [
   { id: "P-1939", label: "อาวุธอื่นๆ ตามที่กำหนด" },
 ];
 
-interface MockRow {
+const WEAPON_TYPE_FILTER: Record<string, (w: { id: string; label: string }) => boolean> = {
+  "กระสุน":   (w) => /^(กระสุน|จรวด|ดินปืน|ชนวน)/.test(w.label),
+  "ระเบิด":   (w) => /ระเบิด/.test(w.label),
+  "อาวุธปืน": (w) => /^(อาวุธปืน|ปืน)/.test(w.label),
+};
+
+interface RawRow {
   id: number; companyId: string; company: string;
   buyerGroupId: string; buyerUnit: string; regionId: string; weaponId: string;
   qty: number; date: string; status: string;
 }
 
-const MOCK_ROWS: MockRow[] = [
+// ── ข้อมูล address mock ต่อผู้ประกอบการ (simulate API response) ──
+const COMPANY_ADDR: Record<string, { baan: string; moo: string; soi: string; road: string; tambon: string; amphoe: string; province: string; zip: string }> = {
+  "1":  { baan:"99/1",  moo:"3", soi:"สุขุมวิท 71",   road:"สุขุมวิท",       tambon:"พระโขนงเหนือ", amphoe:"วัฒนา",        province:"กรุงเทพมหานคร", zip:"10110" },
+  "2":  { baan:"45",    moo:"2", soi:"-",              road:"วิภาวดีรังสิต",  tambon:"จตุจักร",      amphoe:"จตุจักร",      province:"กรุงเทพมหานคร", zip:"10900" },
+  "3":  { baan:"12/3",  moo:"1", soi:"ลาดพร้าว 41",   road:"ลาดพร้าว",      tambon:"จอมพล",        amphoe:"จตุจักร",      province:"กรุงเทพมหานคร", zip:"10900" },
+  "4":  { baan:"88",    moo:"5", soi:"-",              road:"พระรามที่ 9",    tambon:"บางกะปิ",      amphoe:"ห้วยขวาง",     province:"กรุงเทพมหานคร", zip:"10310" },
+  "5":  { baan:"200",   moo:"4", soi:"เพชรบุรี 7",    road:"เพชรบุรี",       tambon:"มักกะสัน",     amphoe:"ราษฎร์บูรณะ",  province:"กรุงเทพมหานคร", zip:"10400" },
+  "6":  { baan:"33/2",  moo:"2", soi:"-",              road:"รัชดาภิเษก",     tambon:"ดินแดง",       amphoe:"ดินแดง",       province:"กรุงเทพมหานคร", zip:"10400" },
+  "7":  { baan:"55",    moo:"6", soi:"สาทร 12",        road:"สาทรใต้",        tambon:"ยานนาวา",      amphoe:"สาทร",         province:"กรุงเทพมหานคร", zip:"10120" },
+  "8":  { baan:"77/4",  moo:"1", soi:"-",              road:"พหลโยธิน",       tambon:"สามเสนใน",     amphoe:"พญาไท",        province:"กรุงเทพมหานคร", zip:"10400" },
+  "9":  { baan:"10",    moo:"3", soi:"นวมินทร์ 20",   road:"นวมินทร์",       tambon:"คลองกุ่ม",     amphoe:"บึงกุ่ม",      province:"กรุงเทพมหานคร", zip:"10230" },
+  "10": { baan:"66/1",  moo:"2", soi:"-",              road:"บางนา-ตราด",     tambon:"บางนา",        amphoe:"บางนา",        province:"กรุงเทพมหานคร", zip:"10260" },
+  "14": { baan:"21/1",  moo:"1", soi:"ราษฎร์พัฒนา 3", road:"ราษฎร์พัฒนา",   tambon:"สะพานสูง",     amphoe:"สะพานสูง",     province:"กรุงเทพมหานคร", zip:"10240" },
+  "15": { baan:"158",   moo:"7", soi:"-",              road:"เจริญกรุง",       tambon:"วังบูรพาภิรมย์",amphoe:"พระนคร",      province:"กรุงเทพมหานคร", zip:"10200" },
+};
+
+const REGION_PROVINCE: Record<string, { province: string; amphoe: string; tambon: string; zip: string }> = {
+  "C":  { province:"กรุงเทพมหานคร",          amphoe:"พระนคร",        tambon:"พระบรมมหาราชวัง", zip:"10200" },
+  "N":  { province:"เชียงใหม่",               amphoe:"เมืองเชียงใหม่", tambon:"ช้างเผือก",       zip:"50300" },
+  "NE": { province:"ขอนแก่น",                 amphoe:"เมืองขอนแก่น",  tambon:"ในเมือง",          zip:"40000" },
+  "S":  { province:"สงขลา",                   amphoe:"เมืองสงขลา",    tambon:"บ่อยาง",           zip:"90000" },
+  "E":  { province:"ชลบุรี",                  amphoe:"เมืองชลบุรี",   tambon:"บางปลาสร้อย",     zip:"20000" },
+  "W":  { province:"กาญจนบุรี",               amphoe:"เมืองกาญจนบุรี",tambon:"ปากแพรก",          zip:"71000" },
+};
+
+const TRANSPORT_TYPES = ["ขนย้าย", "ขายขนย้ายในราชอาณาจักร", "ขายขนย้ายนอกราชอาณาจักร"] as const;
+type TransportType = typeof TRANSPORT_TYPES[number];
+
+type MockRow = RawRow & {
+  docNo: string; expireDate: string; transportType: TransportType;
+  srcBaan: string; srcAkhan: string; srcMoo: string; srcSoi: string; srcRoad: string;
+  srcTambon: string; srcAmphoe: string; srcProvince: string; srcZip: string;
+  dstBaan: string; dstAkhan: string; dstMoo: string; dstSoi: string; dstRoad: string;
+  dstTambon: string; dstAmphoe: string; dstProvince: string; dstZip: string;
+  weaponCode: string; weaponName: string;
+};
+
+const enrichRow = (r: RawRow): MockRow => {
+  const src = COMPANY_ADDR[r.companyId] ?? COMPANY_ADDR["1"];
+  const dst = REGION_PROVINCE[r.regionId] ?? REGION_PROVINCE["C"];
+  const [y, m, d] = r.date.split("-").map(Number);
+  const exp = new Date(y - 543, m - 1 + 12, d);
+  const expStr = `${String(exp.getDate()).padStart(2,"0")}/${String(exp.getMonth()+1).padStart(2,"0")}/${exp.getFullYear()+543}`;
+  const weapon = WEAPONS.find((w) => w.id === r.weaponId);
+  return {
+    ...r,
+    docNo: `${String(r.id).padStart(3,"0")}/${r.date.slice(0,4)}`,
+    expireDate: expStr,
+    transportType: TRANSPORT_TYPES[r.id % 3],
+    srcBaan: src.baan, srcAkhan: "-", srcMoo: src.moo, srcSoi: src.soi, srcRoad: src.road,
+    srcTambon: src.tambon, srcAmphoe: src.amphoe, srcProvince: src.province, srcZip: src.zip,
+    dstBaan: "-", dstAkhan: "-", dstMoo: "-", dstSoi: "-", dstRoad: "-",
+    dstTambon: dst.tambon, dstAmphoe: dst.amphoe, dstProvince: dst.province, dstZip: dst.zip,
+    weaponCode: r.weaponId,
+    weaponName: weapon?.label ?? r.weaponId,
+  };
+};
+
+const MOCK_ROWS: MockRow[] = ([
   // บริษัท เนแรค อาร์มส (1)
   { id:1,  companyId:"1",  company:"บริษัท เนแรค อาร์มส อินดัสตรี จำกัด",         buyerGroupId:"1", buyerUnit:"กองพันทหารม้าที่ 4 กองพลที่ 1 รักษาพระองค์",                          regionId:"N",  weaponId:"P-0036", qty:150000, date:"2568-01-10", status:"อนุมัติ" },
   { id:2,  companyId:"1",  company:"บริษัท เนแรค อาร์มส อินดัสตรี จำกัด",         buyerGroupId:"2", buyerUnit:"กองร้อยตำรวจตระเวนชายแดนที่ 414",                                      regionId:"C",  weaponId:"P-0035", qty:42000,  date:"2568-02-15", status:"อนุมัติ" },
@@ -169,7 +233,7 @@ const MOCK_ROWS: MockRow[] = [
   { id:48, companyId:"15", company:"บริษัท ไทย ทรัพย์นคร จำกัด",                  buyerGroupId:"3", buyerUnit:"สมาคมยิงปืนเขาเขียวนครสวรรค์",                                        regionId:"C",  weaponId:"P-0031", qty:5500,   date:"2568-06-01", status:"อนุมัติ" },
   { id:49, companyId:"15", company:"บริษัท ไทย ทรัพย์นคร จำกัด",                  buyerGroupId:"9", buyerUnit:"กองบังคับการฝึกอบรมตำรวจกลาง",                                       regionId:"E",  weaponId:"P-0033", qty:2900,   date:"2568-07-18", status:"กำลังดำเนินการ" },
   { id:50, companyId:"15", company:"บริษัท ไทย ทรัพย์นคร จำกัด",                  buyerGroupId:"0", buyerUnit:"-",                                                                     regionId:"W",  weaponId:"P-0027", qty:1100,   date:"2568-08-25", status:"อนุมัติ" },
-];
+] as RawRow[]).map(enrichRow);
 
 const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
   "อนุมัติ":         { bg: "#ECFDF5", color: "#059669" },
@@ -184,18 +248,161 @@ const INPUT_RADIUS = 10;
 const INPUT_BORDER = "1px solid #E5E7EB";
 const SEL: React.CSSProperties = { width: "100%", height: INPUT_H, padding: "0 12px", fontSize: 13, border: INPUT_BORDER, borderRadius: INPUT_RADIUS, outline: "none", background: "#fff", color: "#374151", appearance: "none" };
 
+/* ─── ThaiDatePicker ──────────────────────────────────── */
+const THAI_MONTHS = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+const THAI_DAYS_SHORT = ["อา","จ","อ","พ","พฤ","ศ","ส"];
+
+function ThaiDatePicker({ value, onChange, placeholder = "วว/ดด/ปปปป" }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  const [open, setOpen] = useState(false);
+  const [viewYear, setViewYear] = useState(() => { const d = value ? new Date(value) : new Date(); return d.getFullYear(); });
+  const [viewMonth, setViewMonth] = useState(() => { const d = value ? new Date(value) : new Date(); return d.getMonth(); });
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const displayVal = (() => {
+    if (!value) return "";
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return "";
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yy = d.getFullYear() + 543;
+    return `${dd}/${mm}/${yy}`;
+  })();
+
+  const selectedDate = value ? new Date(value) : null;
+
+  const prevMonth = () => { if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); } else setViewMonth(m => m - 1); };
+  const nextMonth = () => { if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); } else setViewMonth(m => m + 1); };
+
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const cells: (number | null)[] = [...Array(firstDay).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const selectDay = (day: number) => {
+    const mm = String(viewMonth + 1).padStart(2, "0");
+    const dd = String(day).padStart(2, "0");
+    onChange(`${viewYear}-${mm}-${dd}`);
+    setOpen(false);
+  };
+
+  const isSelected = (day: number) => {
+    if (!selectedDate) return false;
+    return selectedDate.getFullYear() === viewYear && selectedDate.getMonth() === viewMonth && selectedDate.getDate() === day;
+  };
+
+  const today = new Date();
+  const isToday = (day: number) => today.getFullYear() === viewYear && today.getMonth() === viewMonth && today.getDate() === day;
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        type="button"
+        onClick={() => { if (!open) { if (value) { const d = new Date(value); setViewYear(d.getFullYear()); setViewMonth(d.getMonth()); } } setOpen(o => !o); }}
+        style={{ ...SEL, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", textAlign: "left", padding: "0 10px 0 12px" }}
+      >
+        <span style={{ color: displayVal ? "#374151" : "#9CA3AF", fontSize: 13 }}>{displayVal || placeholder}</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          {value && <X size={12} color="#9CA3AF" style={{ cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); onChange(""); }} />}
+          <CalendarDays size={15} color="#9CA3AF" />
+        </span>
+      </button>
+
+      {open && (
+        <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 9999, background: "#fff", border: "1px solid #E5E7EB", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", padding: 16, minWidth: 280 }}>
+          {/* Header */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <button type="button" onClick={prevMonth} style={{ border: "none", background: "none", cursor: "pointer", padding: 4, borderRadius: 6, display: "flex", alignItems: "center" }}>
+              <ChevronLeft size={16} color="#374151" />
+            </button>
+            <span style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>{THAI_MONTHS[viewMonth]} {viewYear + 543}</span>
+            <button type="button" onClick={nextMonth} style={{ border: "none", background: "none", cursor: "pointer", padding: 4, borderRadius: 6, display: "flex", alignItems: "center" }}>
+              <ChevronRight size={16} color="#374151" />
+            </button>
+          </div>
+          {/* Day names */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 4 }}>
+            {THAI_DAYS_SHORT.map(d => (
+              <div key={d} style={{ textAlign: "center", fontSize: 11, fontWeight: 600, color: "#6B7280", padding: "4px 0" }}>{d}</div>
+            ))}
+          </div>
+          {/* Day cells */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+            {cells.map((day, i) => day === null ? (
+              <div key={i} />
+            ) : (
+              <button key={i} type="button" onClick={() => selectDay(day)}
+                style={{ border: "none", cursor: "pointer", borderRadius: 6, padding: "6px 0", fontSize: 13, fontWeight: isSelected(day) ? 700 : 400,
+                  background: isSelected(day) ? PRIMARY : "transparent",
+                  color: isSelected(day) ? "#fff" : isToday(day) ? PRIMARY : "#374151",
+                  outline: isToday(day) && !isSelected(day) ? `1.5px solid ${PRIMARY}` : "none"
+                }}
+                onMouseEnter={(e) => { if (!isSelected(day)) (e.currentTarget as HTMLButtonElement).style.background = "#EEF2FF"; }}
+                onMouseLeave={(e) => { if (!isSelected(day)) (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+              >{day}</button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── SelectField ─────────────────────────────────────── */
 function SelectField({ value, onChange, placeholder, options }: {
   value: string; onChange: (v: string) => void;
   placeholder: string; options: { value: string; label: string }[];
 }) {
+  const [open, setOpen] = useState(false);
+  const [kw, setKw] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+  const selectedLabel = options.find((o) => o.value === value)?.label ?? "";
+  const filtered = options.filter((o) => o.label.toLowerCase().includes(kw.toLowerCase()));
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setKw(""); } };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
   return (
-    <div style={{ position: "relative" }}>
-      <select value={value} onChange={(e) => onChange(e.target.value)} style={SEL}>
-        <option value="">{placeholder}</option>
-        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
-      <ChevronDown size={15} color="#9CA3AF" style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+    <div ref={ref} style={{ position: "relative" }}>
+      <div onClick={() => setOpen((p) => !p)}
+        style={{ ...SEL, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", userSelect: "none", color: value ? "#111827" : "#374151" }}>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedLabel || placeholder}</span>
+        <ChevronDown size={15} color="#9CA3AF" style={{ flexShrink: 0, transition: "transform 0.15s", transform: open ? "rotate(180deg)" : "none" }} />
+      </div>
+      {open && (
+        <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "#fff", border: "1px solid #E5E7EB", borderRadius: 8, boxShadow: "0 4px 16px rgba(0,0,0,0.10)", zIndex: 200, overflow: "hidden" }}>
+          <div style={{ padding: "8px 8px 4px" }}>
+            <input autoFocus value={kw} onChange={(e) => setKw(e.target.value)} placeholder="ค้นหา..."
+              style={{ width: "100%", height: 32, padding: "0 10px", fontSize: 13, border: "1px solid #E5E7EB", borderRadius: 6, outline: "none", boxSizing: "border-box" }} />
+          </div>
+          <div style={{ maxHeight: 200, overflowY: "auto" }}>
+            <div onClick={() => { onChange(""); setOpen(false); setKw(""); }}
+              style={{ padding: "8px 12px", fontSize: 13, cursor: "pointer", color: "#9CA3AF", background: value === "" ? "#F5F3FF" : "transparent" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "#F9FAFB"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = value === "" ? "#F5F3FF" : "transparent"; }}>
+              {placeholder}
+            </div>
+            {filtered.map((o) => (
+              <div key={o.value} onClick={() => { onChange(o.value); setOpen(false); setKw(""); }}
+                style={{ padding: "8px 12px", fontSize: 13, cursor: "pointer", background: value === o.value ? "#F5F3FF" : "transparent", color: value === o.value ? "#6574FF" : "#111827", fontWeight: value === o.value ? 600 : 400 }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "#F5F3FF"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = value === o.value ? "#F5F3FF" : "transparent"; }}>
+                {o.label}
+              </div>
+            ))}
+            {filtered.length === 0 && <div style={{ padding: "8px 12px", fontSize: 13, color: "#9CA3AF" }}>ไม่พบข้อมูล</div>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -278,18 +485,26 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
 
 /* ─── Main component ─────────────────────────────────── */
 export function Page1Overview() {
-  const [f_dateFrom, setDateFrom] = useState("");
-  const [f_dateTo,   setDateTo]   = useState("");
-  const [f_company,  setCompany]  = useState("");
-  const [f_region,   setRegion]   = useState("");
-  const [f_buyers,   setBuyers]   = useState<string[]>([]);
-  const [f_weapons,  setWeapons]  = useState<string[]>([]);
-  const [a, setA] = useState({ company: "", region: "", buyers: [] as string[], weapons: [] as string[] });
+  const [f_dateFrom,    setDateFrom]    = useState("");
+  const [f_dateTo,      setDateTo]      = useState("");
+  const [f_companies,   setCompanies]   = useState<string[]>([]);
+  const [f_weaponType,  setWeaponType]  = useState("");
+  const [f_unit,        setUnit]        = useState("");
+  const [f_weapons,     setWeapons]     = useState<string[]>([]);
+  const [f_region,      setRegion]      = useState("");
+  const [f_buyers,      setBuyers]      = useState<string[]>([]);
+  const [f_buyerUnits,  setBuyerUnits]  = useState<string[]>([]);
+  const [a, setA] = useState({ companies: [] as string[], weaponType: "", unit: "", region: "", buyers: [] as string[], buyerUnits: [] as string[], weapons: [] as string[] });
+  const [searched, setSearched] = useState(false);
+  const [tablePage, setTablePage] = useState(1);
+  const [tablePageSize, setTablePageSize] = useState(10);
 
-  const handleSearch = () => setA({ company: f_company, region: f_region, buyers: f_buyers, weapons: f_weapons });
+  const handleSearch = () => { setA({ companies: f_companies, weaponType: f_weaponType, unit: f_unit, region: f_region, buyers: f_buyers, buyerUnits: f_buyerUnits, weapons: f_weapons }); setSearched(true); setTablePage(1); };
   const handleReset  = () => {
-    setDateFrom(""); setDateTo(""); setCompany(""); setRegion(""); setBuyers([]); setWeapons([]);
-    setA({ company: "", region: "", buyers: [], weapons: [] });
+    setDateFrom(""); setDateTo(""); setCompanies([]); setWeaponType(""); setUnit(""); setWeapons([]);
+    setRegion(""); setBuyers([]); setBuyerUnits([]);
+    setA({ companies: [], weaponType: "", unit: "", region: "", buyers: [], buyerUnits: [], weapons: [] });
+    setSearched(false);
   };
 
   /* chart interaction */
@@ -313,6 +528,7 @@ export function Page1Overview() {
     const shown  = el.querySelectorAll<HTMLElement>("[data-capture-show]");
     hidden.forEach((n) => { n.dataset.origDisplay = n.style.display; n.style.display = "none"; });
     shown.forEach((n)  => { n.dataset.origDisplay = n.style.display; n.style.display = "block"; });
+    await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
     await fn(el);
     hidden.forEach((n) => { n.style.display = n.dataset.origDisplay ?? ""; });
     shown.forEach((n)  => { n.style.display = n.dataset.origDisplay ?? "none"; });
@@ -327,21 +543,47 @@ export function Page1Overview() {
 
   const copyPNG = (ref: React.RefObject<HTMLDivElement>, setCopied: (v: boolean) => void) =>
     captureChart(ref, async (el) => {
-      const { toBlob } = await import("html-to-image");
-      const blob = await toBlob(el, { pixelRatio: 2, backgroundColor: "#ffffff" });
-      if (!blob) return;
-      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-      setCopied(true); setTimeout(() => setCopied(false), 2000);
+      try {
+        const { toBlob } = await import("html-to-image");
+        const blob = await toBlob(el, { pixelRatio: 2, backgroundColor: "#ffffff" });
+        if (!blob) return;
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (e) {
+        console.error("copy failed", e);
+      }
     });
 
   /* filtered rows */
-  const rows = MOCK_ROWS.filter((r) => {
-    if (a.company  && r.companyId    !== a.company)             return false;
-    if (a.region   && r.regionId     !== a.region)              return false;
-    if (a.buyers.length  && !a.buyers.includes(r.buyerGroupId)) return false;
-    if (a.weapons.length && !a.weapons.includes(r.weaponId))    return false;
+  const rows = !searched ? [] : MOCK_ROWS.filter((r) => {
+    if (a.companies.length && !a.companies.includes(r.companyId)) return false;
+    if (a.region   && r.regionId !== a.region)                    return false;
+    if (a.buyers.length    && !a.buyers.includes(r.buyerGroupId)) return false;
+    if (a.buyerUnits.length && !a.buyerUnits.includes(r.buyerUnit)) return false;
+    if (a.weapons.length) {
+      if (!a.weapons.includes(r.weaponId)) return false;
+    } else if (a.weaponType) {
+      const fn = WEAPON_TYPE_FILTER[a.weaponType];
+      if (fn) {
+        const weapon = WEAPONS.find((w) => w.id === r.weaponId);
+        if (!weapon || !fn(weapon)) return false;
+      }
+    }
     return true;
   });
+
+  const filteredWeaponOptions = f_weaponType
+    ? WEAPONS.filter((w) => WEAPON_TYPE_FILTER[f_weaponType]?.(w) ?? true)
+    : [];
+
+  const buyerUnitOptions = [
+    ...new Set(
+      MOCK_ROWS
+        .filter((r) => f_buyers.length === 0 || f_buyers.includes(r.buyerGroupId))
+        .map((r) => r.buyerUnit)
+    )
+  ].sort((a, b) => a.localeCompare(b, "th")).map((u) => ({ id: u, label: u }));
 
   const totalQty = rows.reduce((s, r) => s + r.qty, 0);
 
@@ -360,7 +602,7 @@ export function Page1Overview() {
 
   const exportRawExcel = () => {
     const headers = [
-      "เลขที่หนังสือ","วันที่อนุญาต","วันที่หมดอายุ","ผู้ประกอบการ",
+      "เลขที่หนังสือ","วันที่อนุญาต","วันที่หมดอายุ","ประเภทขนย้าย","ผู้ประกอบการ",
       "กลุ่มหน่วยผู้ซื้อ","หน่วยผู้ซื้อ",
       "สถานที่ต้นทาง","บ้านเลขที่สถานที่ต้นทาง","อาคารสถานที่ต้นทาง","หมู่ที่สถานที่ต้นทาง",
       "ซอยสถานที่ต้นทาง","ถนนสถานที่ต้นทาง","ตำบลสถานที่ต้นทาง","อำเภอสถานที่ต้นทาง",
@@ -370,25 +612,18 @@ export function Page1Overview() {
       "จังหวัดสถานที่ปลายทาง","รหัสไปรษณีย์สถานที่ปลายทาง",
       "รหัสอาวุธ","ชื่ออาวุธ","จำนวน","หน่วยนับ",
     ];
-    const dataRows = rows.map((r, i) => [
-      `${String(i + 1).padStart(3, "0")}/${r.date.split("-")[0]}`,
-      formatThaiDate(r.date),
-      addMonths(r.date, 3),
-      r.company,
-      BUYER_GROUPS.find((b) => b.id === r.buyerGroupId)?.label ?? "",
-      r.buyerUnit,
-      r.company, "", null, null, null, null, null, null, null, null,
-      r.buyerUnit, "-", null, null, null, null, null, null, null, null,
-      r.weaponId,
-      WEAPONS.find((w) => w.id === r.weaponId)?.label ?? r.weaponId,
-      r.qty,
-      "นัด",
+    const dataRows = rows.map((r) => [
+      r.docNo, formatThaiDate(r.date), r.expireDate, r.transportType, r.company,
+      BUYER_GROUPS.find((b) => b.id === r.buyerGroupId)?.label ?? "", r.buyerUnit,
+      r.company, r.srcBaan, r.srcAkhan, r.srcMoo, r.srcSoi, r.srcRoad, r.srcTambon, r.srcAmphoe, r.srcProvince, r.srcZip,
+      r.buyerUnit, r.dstBaan, r.dstAkhan, r.dstMoo, r.dstSoi, r.dstRoad, r.dstTambon, r.dstAmphoe, r.dstProvince, r.dstZip,
+      r.weaponCode, r.weaponName, r.qty, a.unit || "-",
     ]);
     const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
-    ws["!cols"] = headers.map((_, i) => ({ wch: [14,14,14,40,18,60,40,10,10,8,10,20,14,16,14,8,60,10,10,8,10,20,14,16,14,8,12,40,10,8][i] ?? 12 }));
+    ws["!cols"] = headers.map((_, i) => ({ wch: [18,14,14,24,40,20,60,40,10,10,6,14,20,14,16,20,8,60,10,10,6,14,20,14,16,20,8,12,40,10,8][i] ?? 12 }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "ข้อมูลดิบ");
-    XLSX.writeFile(wb, "ข้อมูลดิบยอดขายกระสุนปืน.xlsx");
+    XLSX.writeFile(wb, "ข้อมูลดิบยอดอนุญาตให้ขายขนย้ายอาวุธ.xlsx");
   };
 
   const exportSummaryExcel = () => {
@@ -396,15 +631,15 @@ export function Page1Overview() {
       "#": i + 1,
       "ผู้ประกอบการ": r.company,
       "กลุ่มหน่วยผู้ซื้อ": BUYER_GROUPS.find((b) => b.id === r.buyerGroupId)?.label ?? "",
-      "หน่วยผู้ซื้อ": r.buyerUnit,
-      "อาวุธ/กระสุน": WEAPONS.find((w) => w.id === r.weaponId)?.label ?? r.weaponId,
-      "จำนวน(นัด)": r.qty,
+      "อาวุธ": WEAPONS.find((w) => w.id === r.weaponId)?.label ?? r.weaponId,
+      "จำนวน": r.qty,
+      "หน่วยนับ": a.unit,
     }));
     const ws = XLSX.utils.json_to_sheet(exportData);
-    ws["!cols"] = [{ wch: 5 }, { wch: 40 }, { wch: 18 }, { wch: 60 }, { wch: 40 }, { wch: 14 }];
+    ws["!cols"] = [{ wch: 5 }, { wch: 40 }, { wch: 20 }, { wch: 50 }, { wch: 12 }, { wch: 10 }];
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "สรุปยอดขาย");
-    XLSX.writeFile(wb, "สรุปยอดขายกระสุนปืน.xlsx");
+    XLSX.utils.book_append_sheet(wb, ws, "สรุปยอดอนุญาต");
+    XLSX.writeFile(wb, "สรุปยอดอนุญาตให้ขายขนย้ายอาวุธ.xlsx");
   };
 
   const getBuyerLabel = (id: string) => BUYER_GROUPS.find((b) => b.id === id)?.label ?? "";
@@ -417,7 +652,7 @@ export function Page1Overview() {
     buyerGroupLabel: getBuyerLabel(r.buyerGroupId),
     regionLabel: getRegionLabel(r.regionId),
     weaponLabel: getWeaponLabel(r.weaponId),
-    dateFormatted: r.date.replace(/(\d{4})-(\d{2})-(\d{2})/, "$3/$2/$1"),
+    dateFormatted: formatThaiDate(r.date),
   }));
 
   type TableRow = (typeof tableData)[0];
@@ -444,35 +679,51 @@ export function Page1Overview() {
   });
 
   const antColumns: TableColumnsType<TableRow> = [
-    { title: "#", key: "no", width: 52, render: (_: unknown, __: TableRow, i: number) => i + 1 },
+    { title: "#", key: "no", width: 52, render: (_: unknown, __: TableRow, i: number) => (tablePage - 1) * tablePageSize + i + 1 },
+    { title: "เลขที่หนังสือ อ.10", dataIndex: "docNo", key: "docNo", width: 170, ...getColSearchProps("docNo", "เลขที่หนังสือ") },
+    { title: "วันที่อนุญาต", dataIndex: "dateFormatted", key: "date", width: 130, sorter: (a, b) => a.date.localeCompare(b.date) },
+    { title: "วันที่หมดอายุ", dataIndex: "expireDate", key: "expireDate", width: 130 },
+    { title: "ประเภทขนย้าย", dataIndex: "transportType", key: "transportType", width: 200,
+      filters: TRANSPORT_TYPES.map((t) => ({ text: t, value: t })),
+      onFilter: (value, record) => record.transportType === value,
+      render: (v: TransportType) => {
+        return <span>{v}</span>;
+      },
+    },
     { title: "ผู้ประกอบการ", dataIndex: "company", key: "company", sorter: (a, b) => a.company.localeCompare(b.company, "th"), ...getColSearchProps("company", "ผู้ประกอบการ") },
-    { title: "กลุ่มหน่วยผู้ซื้อ", dataIndex: "buyerGroupLabel", key: "buyerGroup", width: 160, sorter: (a, b) => a.buyerGroupLabel.localeCompare(b.buyerGroupLabel, "th"), ...getColSearchProps("buyerGroupLabel", "กลุ่มหน่วยผู้ซื้อ") },
+    { title: "กลุ่มหน่วยผู้ซื้อ", dataIndex: "buyerGroupLabel", key: "buyerGroup", width: 180, sorter: (a, b) => a.buyerGroupLabel.localeCompare(b.buyerGroupLabel, "th"), ...getColSearchProps("buyerGroupLabel", "กลุ่มหน่วยผู้ซื้อ") },
     { title: "หน่วยผู้ซื้อ", dataIndex: "buyerUnit", key: "buyerUnit", sorter: (a, b) => a.buyerUnit.localeCompare(b.buyerUnit, "th"), ...getColSearchProps("buyerUnit", "หน่วยผู้ซื้อ") },
-    { title: "อาวุธ/กระสุน", dataIndex: "weaponLabel", key: "weapon", sorter: (a, b) => a.weaponLabel.localeCompare(b.weaponLabel, "th"), ...getColSearchProps("weaponLabel", "อาวุธ/กระสุน") },
-    { title: "จำนวน(นัด)", dataIndex: "qty", key: "qty", width: 130, align: "right" as const, sorter: (a, b) => a.qty - b.qty, render: (v: number) => <span style={{ color: PRIMARY, fontWeight: 600 }}>{v.toLocaleString()}</span> },
+    { title: "อาวุธ", dataIndex: "weaponLabel", key: "weapon", sorter: (a, b) => a.weaponLabel.localeCompare(b.weaponLabel, "th"), ...getColSearchProps("weaponLabel", "อาวุธ") },
+    { title: "จำนวน", dataIndex: "qty", key: "qty", width: 110, align: "right" as const, sorter: (a, b) => a.qty - b.qty, render: (v: number) => <span style={{ color: PRIMARY, fontWeight: 600 }}>{v.toLocaleString()}</span> },
+    { title: "หน่วยนับ", key: "unit", width: 100, render: () => <span style={{ color: "#374151" }}>{a.unit || "-"}</span> },
   ];
 
   const antTableProps: TableProps<TableRow> = {
     columns: antColumns,
     dataSource: tableData,
     size: "middle",
-    pagination: { pageSize: 10, showSizeChanger: true, pageSizeOptions: ["10","20","50"], showTotal: (total, range) => `${range[0]}-${range[1]} จาก ${total} รายการ`, locale: { items_per_page: "/หน้า", jump_to: "ไปที่", page: "หน้า" } },
+    pagination: { current: tablePage, pageSize: tablePageSize, showSizeChanger: true, pageSizeOptions: ["10","20","50"], showTotal: (total, range) => `${range[0]}-${range[1]} จาก ${total} รายการ`, locale: { items_per_page: "/หน้า", jump_to: "ไปที่", page: "หน้า" }, onChange: (p, ps) => { setTablePage(p); setTablePageSize(ps); } },
     scroll: { x: 1200 },
   };
 
-  /* bar chart — all companies always shown */
+  /* bar chart — only companies present in filtered rows */
   const chartMap: Record<string, { id: string; name: string; qty: number }> = {};
-  COMPANIES.forEach((c) => { chartMap[c.id] = { id: c.id, name: c.name, qty: 0 }; });
-  rows.forEach((r) => { if (chartMap[r.companyId]) chartMap[r.companyId].qty += r.qty; });
+  rows.forEach((r) => {
+    if (!chartMap[r.companyId]) chartMap[r.companyId] = { id: r.companyId, name: r.company, qty: 0 };
+    chartMap[r.companyId].qty += r.qty;
+  });
   const chartData = Object.values(chartMap).filter((d) => !hiddenCompanies.has(d.id)).sort((a, b) => b.qty - a.qty);
 
-  /* pie chart — buyer groups always shown */
+  /* pie chart — only buyer groups present in filtered rows */
   const PIE_COLORS = ["#6574FF", "#06B6D4", "#10B981", "#F59E0B", "#EF4444"];
-  const buyerPieData = BUYER_GROUPS.map((bg, i) => ({
-    id: bg.id, name: bg.label,
-    value: hiddenBuyers.has(bg.id) ? 0 : rows.filter((r) => r.buyerGroupId === bg.id).reduce((s, r) => s + r.qty, 0),
-    color: PIE_COLORS[i % PIE_COLORS.length],
-  }));
+  const activeBuyerGroupIds = [...new Set(rows.map((r) => r.buyerGroupId))];
+  const buyerPieData = BUYER_GROUPS
+    .filter((bg) => activeBuyerGroupIds.includes(bg.id))
+    .map((bg, i) => ({
+      id: bg.id, name: bg.label,
+      value: hiddenBuyers.has(bg.id) ? 0 : rows.filter((r) => r.buyerGroupId === bg.id).reduce((s, r) => s + r.qty, 0),
+      color: PIE_COLORS[i % PIE_COLORS.length],
+    }));
 
   /* active pie shape */
   const renderActiveShape = (props: Record<string, number & string>) => {
@@ -496,7 +747,7 @@ export function Page1Overview() {
       <div style={{ fontSize: 12, color: "#8B8E95", marginBottom: 4 }}>ระบบรายงาน / รายงาน</div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: "#0E1119" }}>รายงานยอดขายกระสุนปืนให้หน่วยงานตามมาตรา 7</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: "#0E1119" }}>รายงานยอดอนุญาตให้ขาย/ขนย้ายอาวุธ</div>
         </div>
       </div>
 
@@ -504,56 +755,84 @@ export function Page1Overview() {
       <div style={{ background: "#fff", borderRadius: 16, padding: 24, boxShadow: "0 1px 3px rgba(15,23,42,0.08)", marginBottom: 16 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "#0E1119", marginBottom: 16 }}>ค้นหาข้อมูล</div>
 
-        {/* Row 1 */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
+        {/* Row 1: วันที่เริ่ม 1/4 | วันที่สิ้นสุด 1/4 | ผู้ประกอบการ 2/4 */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: 12, marginBottom: 12 }}>
           <div>
             <label style={LBL}>วันที่อนุญาต เริ่ม</label>
-            <input type="date" value={f_dateFrom} onChange={(e) => setDateFrom(e.target.value)}
-              style={{ ...SEL, padding: "0 12px" }} />
+            <ThaiDatePicker value={f_dateFrom} onChange={setDateFrom} />
           </div>
           <div>
             <label style={LBL}>วันที่อนุญาต สิ้นสุด</label>
-            <input type="date" value={f_dateTo} onChange={(e) => setDateTo(e.target.value)}
-              style={{ ...SEL, padding: "0 12px" }} />
+            <ThaiDatePicker value={f_dateTo} onChange={setDateTo} />
           </div>
           <div>
             <label style={LBL}>ผู้ประกอบการ</label>
-            <SelectField value={f_company} onChange={setCompany} placeholder="ทั้งหมด"
-              options={COMPANIES.map((c) => ({ value: c.id, label: c.name }))} />
+            <MultiSelect placeholder="ทั้งหมด"
+              options={COMPANIES.map((c) => ({ id: c.id, label: c.name }))}
+              selected={f_companies} onChange={setCompanies} showSearch />
           </div>
+        </div>
+
+        {/* Row 2: ภาค 1/4 | กลุ่มหน่วยผู้ซื้อ 1/4 | หน่วยผู้ซื้อ 2/4 */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: 12, marginBottom: 12 }}>
           <div>
             <label style={LBL}>ภาค</label>
             <SelectField value={f_region} onChange={setRegion} placeholder="ทั้งหมด"
               options={REGIONS.map((r) => ({ value: r.id, label: r.label }))} />
           </div>
-        </div>
-
-        {/* Row 2 — 1/4 กลุ่มหน่วยผู้ซื้อ | 2/4 อาวุธ | 1/4 ปุ่ม */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 1fr", gap: 12, alignItems: "end" }}>
           <div>
             <label style={LBL}>กลุ่มหน่วยผู้ซื้อ</label>
             <MultiSelect placeholder="ทั้งหมด"
               options={BUYER_GROUPS.map((b) => ({ id: b.id, label: b.label }))}
-              selected={f_buyers} onChange={setBuyers} />
+              selected={f_buyers} onChange={(v) => { setBuyers(v); setBuyerUnits([]); }} showSearch />
           </div>
           <div>
-            <label style={LBL}>อาวุธ/กระสุน</label>
-            <MultiSelect placeholder="ทั้งหมด" options={WEAPONS} selected={f_weapons} onChange={setWeapons} showSearch />
+            <label style={LBL}>หน่วยผู้ซื้อ</label>
+            <MultiSelect placeholder="ทั้งหมด" options={buyerUnitOptions} selected={f_buyerUnits} onChange={setBuyerUnits} showSearch />
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={handleReset}
-              style={{ height: 40, padding: "0 20px", fontSize: 13, border: `1.5px solid ${PRIMARY}`, borderRadius: 8, background: "#fff", color: PRIMARY, cursor: "pointer", fontWeight: 500, whiteSpace: "nowrap" }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#EEF2FF"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#fff"; }}>
-              รีเซ็ต
-            </button>
-            <button onClick={handleSearch}
-              style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 8, background: PRIMARY, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#515ed8"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = PRIMARY; }}>
-              <Search size={18} color="#fff" />
-            </button>
+        </div>
+
+        {/* Row 3: ประเภทอาวุธ 1/4 | หน่วยนับ 1/4 | อาวุธ 2/4 */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: 12, alignItems: "end" }}>
+          <div>
+            <label style={LBL}>ประเภทอาวุธ <span style={{ color: "#EF4444" }}>*</span></label>
+            <SelectField value={f_weaponType} onChange={(v) => { setWeaponType(v); setWeapons([]); if (v === "กระสุน") setUnit("นัด"); }} placeholder="เลือกประเภท"
+              options={[{ value: "กระสุน", label: "กระสุน" }, { value: "ระเบิด", label: "ระเบิด" }, { value: "อาวุธปืน", label: "อาวุธปืน" }]} />
           </div>
+          <div>
+            <label style={LBL}>หน่วยนับ <span style={{ color: "#EF4444" }}>*</span></label>
+            <SelectField value={f_unit} onChange={(v) => { setUnit(v); setWeapons([]); }} placeholder="เลือกหน่วยนับ"
+              options={[
+                { value: "อัน", label: "อัน" }, { value: "กระบอก", label: "กระบอก" }, { value: "เครื่อง", label: "เครื่อง" },
+                { value: "ชิ้น", label: "ชิ้น" }, { value: "ชุด", label: "ชุด" }, { value: "กรัม", label: "กรัม" },
+                { value: "กิโลกรัม", label: "กิโลกรัม" }, { value: "หม้อ", label: "หม้อ" }, { value: "หัว", label: "หัว" },
+                { value: "ปลอก", label: "ปลอก" }, { value: "นัด", label: "นัด" }, { value: "เมตร", label: "เมตร" },
+                { value: "แท่ง", label: "แท่ง" }, { value: "ดอก", label: "ดอก" }, { value: "ตลับ", label: "ตลับ" },
+                { value: "ปอนด์", label: "ปอนด์" }, { value: "หลอด", label: "หลอด" }, { value: "แผ่น", label: "แผ่น" },
+                { value: "ใบ", label: "ใบ" },
+              ]} />
+          </div>
+          <div>
+            <label style={LBL}>อาวุธ</label>
+            <MultiSelect placeholder="ทั้งหมด"
+              options={filteredWeaponOptions} selected={f_weapons} onChange={setWeapons} showSearch />
+          </div>
+        </div>
+
+        {/* Buttons */}
+        <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
+          <button onClick={handleReset}
+            style={{ height: 40, padding: "0 20px", fontSize: 13, border: `1.5px solid ${PRIMARY}`, borderRadius: 8, background: "#fff", color: PRIMARY, cursor: "pointer", fontWeight: 500, whiteSpace: "nowrap" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#EEF2FF"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#fff"; }}>
+            รีเซ็ต
+          </button>
+          <button onClick={handleSearch} disabled={!f_weaponType || !f_unit}
+            style={{ width: 40, height: 40, borderRadius: 8, background: (!f_weaponType || !f_unit) ? "#D1D5DB" : PRIMARY, border: "none", cursor: (!f_weaponType || !f_unit) ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.15s" }}
+            onMouseEnter={(e) => { if (f_weaponType && f_unit) (e.currentTarget as HTMLButtonElement).style.background = "#515ed8"; }}
+            onMouseLeave={(e) => { if (f_weaponType && f_unit) (e.currentTarget as HTMLButtonElement).style.background = PRIMARY; }}>
+            <Search size={17} color="#fff" />
+          </button>
         </div>
       </div>
 
@@ -564,8 +843,8 @@ export function Page1Overview() {
         <div ref={barChartRef} style={{ background: "#fff", borderRadius: 16, padding: 20, boxShadow: "0 1px 3px rgba(15,23,42,0.08)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
             <div>
-              <div data-capture-show style={{ display: "none", fontSize: 14, fontWeight: 600, color: "#0E1119", marginBottom: 2 }}>ยอดขายกระสุนปืนให้หน่วยงานตามมาตรา 7</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>แยกตามผู้ประกอบการ (นัด)</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119", marginBottom: 2 }}>{searched && a.weaponType ? `ยอดอนุญาตให้การขาย/ขนย้าย${a.weaponType}` : "ยอดอนุญาตให้การขาย/ขนย้าย"}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>แยกตามผู้ประกอบการ{searched && a.unit ? ` (${a.unit})` : ""}</div>
             </div>
             <div data-capture-hide style={{ display: "flex", gap: 6 }}>
               <button onClick={() => copyPNG(barChartRef, setCopiedBar)}
@@ -578,14 +857,36 @@ export function Page1Overview() {
               </button>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={Math.max(chartData.length * 46, 100)}>
+          {(() => {
+            const CHAR_W = 7.2;
+            const LINE_H = 15;
+            const MAX_W = 320;
+            const yAxisW = Math.min(MAX_W, Math.max(...(chartData.map((d) => d.name.length * CHAR_W)), 80));
+            const charsPerLine = Math.floor(yAxisW / CHAR_W);
+            const CustomYTick = ({ x, y, payload }: { x: number; y: number; payload: { value: string } }) => {
+              const words = payload.value.split(" ");
+              const lines: string[] = [];
+              let cur = "";
+              words.forEach((w) => { if ((cur + (cur ? " " : "") + w).length <= charsPerLine) { cur += (cur ? " " : "") + w; } else { if (cur) lines.push(cur); cur = w; } });
+              if (cur) lines.push(cur);
+              const offsetY = -((lines.length - 1) * LINE_H) / 2;
+              return (
+                <g transform={`translate(${x},${y})`}>
+                  {lines.map((l, i) => (
+                    <text key={i} x={-6} y={offsetY + i * LINE_H} textAnchor="end" fill="#111827" fontSize={11} dominantBaseline="middle">{l}</text>
+                  ))}
+                </g>
+              );
+            };
+            return (
+          <ResponsiveContainer width="100%" height={Math.max(chartData.length * 52, 100)}>
             <BarChart data={chartData} layout="vertical" margin={{ left: 10, right: 70, top: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#F0F0F0" />
-              <XAxis type="number" tick={{ fontSize: 11, fill: "#9CA3AF" }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : String(v)} axisLine={false} tickLine={false} />
-              <YAxis type="category" dataKey="name" width={280} tick={{ fontSize: 12, fill: "#454A55" }} axisLine={false} tickLine={false} />
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#D1D5DB" />
+              <XAxis type="number" tick={{ fontSize: 11, fill: "#4B5563" }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : String(v)} axisLine={false} tickLine={false} />
+              <YAxis type="category" dataKey="name" width={yAxisW} tick={<CustomYTick x={0} y={0} payload={{ value: "" }} />} axisLine={false} tickLine={false} />
               <Tooltip content={<ChartTooltip />} cursor={{ fill: "#F5F3FF" }} />
               <Bar dataKey="qty" radius={[0, 6, 6, 0]} maxBarSize={26}
-                label={{ position: "right", fontSize: 11, fill: "#9CA3AF", formatter: (v: number) => v.toLocaleString() }}
+                label={{ position: "right", fontSize: 11, fill: "#374151", fontWeight: 600, formatter: (v: number) => v.toLocaleString() }}
                 onMouseEnter={(_: unknown, index: number) => setActiveBarIndex(index)}
                 onMouseLeave={() => setActiveBarIndex(undefined)}>
                 {chartData.map((_, i) => (
@@ -595,6 +896,8 @@ export function Page1Overview() {
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+            );
+          })()}
           {/* Toggle chips */}
           <div data-capture-hide style={{ marginTop: 14, borderTop: "1px solid #F3F4F6", paddingTop: 12 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
@@ -604,12 +907,12 @@ export function Page1Overview() {
               )}
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {COMPANIES.map((c, i) => {
+              {chartData.map((c, i) => {
                 const hidden = hiddenCompanies.has(c.id);
                 return (
                   <button key={c.id} onClick={() => toggleCompany(c.id)}
                     style={{ height: 24, padding: "0 10px", fontSize: 11, borderRadius: 20, border: `1.5px solid ${hidden ? "#E5E7EB" : PALETTE[i % PALETTE.length]}`, background: hidden ? "#F9FAFB" : PALETTE[i % PALETTE.length] + "22", color: hidden ? "#9CA3AF" : PALETTE[i % PALETTE.length], cursor: "pointer", fontWeight: 500, textDecoration: hidden ? "line-through" : "none", transition: "all 0.15s" }}>
-                    {c.name.replace("บริษัท ", "").replace(" จำกัด", "")}
+                    {c.name}
                   </button>
                 );
               })}
@@ -621,8 +924,8 @@ export function Page1Overview() {
         <div ref={pieChartRef} style={{ background: "#fff", borderRadius: 16, padding: 20, boxShadow: "0 1px 3px rgba(15,23,42,0.08)", display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <div>
-              <div data-capture-show style={{ display: "none", fontSize: 14, fontWeight: 600, color: "#0E1119", marginBottom: 2 }}>ยอดขายกระสุนปืนให้หน่วยงานตามมาตรา 7</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>แยกตามกลุ่มหน่วยผู้ซื้อ (นัด)</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119", marginBottom: 2 }}>{searched && a.weaponType ? `ยอดอนุญาตให้การขาย/ขนย้าย${a.weaponType}` : "ยอดอนุญาตให้การขาย/ขนย้าย"}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>แยกตามกลุ่มหน่วยผู้ซื้อ{searched && a.unit ? ` (${a.unit})` : ""}</div>
             </div>
             <div data-capture-hide style={{ display: "flex", gap: 6 }}>
               <button onClick={() => copyPNG(pieChartRef, setCopiedPie)}
@@ -673,12 +976,12 @@ export function Page1Overview() {
               )}
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {BUYER_GROUPS.map((bg, i) => {
+              {buyerPieData.map((bg, i) => {
                 const hidden = hiddenBuyers.has(bg.id);
                 return (
                   <button key={bg.id} onClick={() => toggleBuyer(bg.id)}
                     style={{ height: 24, padding: "0 10px", fontSize: 11, borderRadius: 20, border: `1.5px solid ${hidden ? "#E5E7EB" : PIE_COLORS[i]}`, background: hidden ? "#F9FAFB" : PIE_COLORS[i] + "22", color: hidden ? "#9CA3AF" : PIE_COLORS[i], cursor: "pointer", fontWeight: 500, textDecoration: hidden ? "line-through" : "none", transition: "all 0.15s" }}>
-                    {bg.label}
+                    {bg.name}
                   </button>
                 );
               })}
@@ -690,19 +993,13 @@ export function Page1Overview() {
       {/* Table */}
       <div style={{ background: "#fff", borderRadius: 16, boxShadow: "0 1px 3px rgba(15,23,42,0.08)", overflow: "hidden" }}>
         <div style={{ padding: "14px 20px", borderBottom: "1px solid #F0F0F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>รายการยอดขายกระสุนปืนให้หน่วยงานตามมาตรา 7</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>รายงานยอดอนุญาตให้ขาย/ขนย้ายอาวุธ</span>
           <div style={{ display: "flex", gap: 8 }}>
             <button style={{ display: "flex", alignItems: "center", gap: 6, height: 36, padding: "0 14px", fontSize: 13, border: "1px solid #D1D5DB", borderRadius: 8, background: "#fff", color: "#374151", cursor: "pointer" }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#F9FAFB"; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#fff"; }}
               onClick={exportRawExcel}>
               <FileSpreadsheet size={15} color="#059669" />Export ดิบ (Excel)
-            </button>
-            <button style={{ display: "flex", alignItems: "center", gap: 6, height: 36, padding: "0 14px", fontSize: 13, border: "1px solid #D1D5DB", borderRadius: 8, background: "#fff", color: "#374151", cursor: "pointer" }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#F9FAFB"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#fff"; }}
-              onClick={exportSummaryExcel}>
-              <FileSpreadsheet size={15} color="#2563EB" />Export สรุป (Excel)
             </button>
           </div>
         </div>
