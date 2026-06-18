@@ -24,8 +24,8 @@ export function Sidebar({ activePage, onPageChange }: SidebarProps) {
   const [expandedRequest, setExpandedRequest] = useState(false);
 
   const reports = [
-    { id: 1, label: "รายงานยอดอนุญาตให้ขาย/ขนย้ายอาวุธ" },
-    { id: 2, label: "รายงานยอดการขนย้าย/ส่งมอบอาวุธหรือวัตถุ" },
+    { id: 1, label: "ยอดอนุญาตให้ขาย/ขนย้ายอาวุธ" },
+    { id: 2, label: "ยอดการขนย้าย/ส่งมอบอาวุธหรือวัตถุ" },
     { id: 3, label: "รายงาน#3 ประเภทกระสุน" },
     { id: 4, label: "รายงาน#4 ปลายทาง" },
     { id: 5, label: "รายงาน#5 ใบอนุญาต" },

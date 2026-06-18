@@ -679,23 +679,21 @@ export function Page1Overview() {
   });
 
   const antColumns: TableColumnsType<TableRow> = [
-    { title: "#", key: "no", width: 52, render: (_: unknown, __: TableRow, i: number) => (tablePage - 1) * tablePageSize + i + 1 },
-    { title: "เลขที่หนังสือ อ.10", dataIndex: "docNo", key: "docNo", width: 170, ...getColSearchProps("docNo", "เลขที่หนังสือ") },
-    { title: "วันที่อนุญาต", dataIndex: "dateFormatted", key: "date", width: 130, sorter: (a, b) => a.date.localeCompare(b.date) },
-    { title: "วันที่หมดอายุ", dataIndex: "expireDate", key: "expireDate", width: 130 },
-    { title: "ประเภทขนย้าย", dataIndex: "transportType", key: "transportType", width: 200,
+    { title: "#",               key: "no",            width: 52,  fixed: "left" as const, align: "center" as const, render: (_: unknown, __: TableRow, i: number) => (tablePage - 1) * tablePageSize + i + 1 },
+    { title: "เลขที่หนังสือ อ.10", dataIndex: "docNo",       key: "docNo",         width: 140, ...getColSearchProps("docNo", "เลขที่หนังสือ") },
+    { title: "วันที่อนุญาต",    dataIndex: "dateFormatted", key: "date",          width: 120, sorter: (a, b) => a.date.localeCompare(b.date) },
+    { title: "วันที่หมดอายุ",   dataIndex: "expireDate",    key: "expireDate",    width: 120 },
+    { title: "ประเภทขนย้าย",   dataIndex: "transportType", key: "transportType", width: 210,
       filters: TRANSPORT_TYPES.map((t) => ({ text: t, value: t })),
       onFilter: (value, record) => record.transportType === value,
-      render: (v: TransportType) => {
-        return <span>{v}</span>;
-      },
+      render: (v: TransportType) => <span>{v}</span>,
     },
-    { title: "ผู้ประกอบการ", dataIndex: "company", key: "company", sorter: (a, b) => a.company.localeCompare(b.company, "th"), ...getColSearchProps("company", "ผู้ประกอบการ") },
-    { title: "กลุ่มหน่วยผู้ซื้อ", dataIndex: "buyerGroupLabel", key: "buyerGroup", width: 180, sorter: (a, b) => a.buyerGroupLabel.localeCompare(b.buyerGroupLabel, "th"), ...getColSearchProps("buyerGroupLabel", "กลุ่มหน่วยผู้ซื้อ") },
-    { title: "หน่วยผู้ซื้อ", dataIndex: "buyerUnit", key: "buyerUnit", sorter: (a, b) => a.buyerUnit.localeCompare(b.buyerUnit, "th"), ...getColSearchProps("buyerUnit", "หน่วยผู้ซื้อ") },
-    { title: "อาวุธ", dataIndex: "weaponLabel", key: "weapon", sorter: (a, b) => a.weaponLabel.localeCompare(b.weaponLabel, "th"), ...getColSearchProps("weaponLabel", "อาวุธ") },
-    { title: "จำนวน", dataIndex: "qty", key: "qty", width: 110, align: "right" as const, sorter: (a, b) => a.qty - b.qty, render: (v: number) => <span style={{ color: PRIMARY, fontWeight: 600 }}>{v.toLocaleString()}</span> },
-    { title: "หน่วยนับ", key: "unit", width: 100, render: () => <span style={{ color: "#374151" }}>{a.unit || "-"}</span> },
+    { title: "ผู้ประกอบการ",    dataIndex: "company",       key: "company",       width: 220, sorter: (a, b) => a.company.localeCompare(b.company, "th"), ...getColSearchProps("company", "ผู้ประกอบการ") },
+    { title: "กลุ่มหน่วยผู้ซื้อ", dataIndex: "buyerGroupLabel", key: "buyerGroup", width: 170, sorter: (a, b) => a.buyerGroupLabel.localeCompare(b.buyerGroupLabel, "th"), ...getColSearchProps("buyerGroupLabel", "กลุ่มหน่วยผู้ซื้อ") },
+    { title: "หน่วยผู้ซื้อ",    dataIndex: "buyerUnit",     key: "buyerUnit",     width: 220, sorter: (a, b) => a.buyerUnit.localeCompare(b.buyerUnit, "th"), ...getColSearchProps("buyerUnit", "หน่วยผู้ซื้อ") },
+    { title: "อาวุธ",           dataIndex: "weaponLabel",   key: "weapon",        width: 200, sorter: (a, b) => a.weaponLabel.localeCompare(b.weaponLabel, "th"), ...getColSearchProps("weaponLabel", "อาวุธ") },
+    { title: "จำนวน",           dataIndex: "qty",           key: "qty",           width: 120, align: "right" as const, sorter: (a, b) => a.qty - b.qty, render: (v: number) => <span style={{ color: PRIMARY, fontWeight: 600 }}>{v.toLocaleString()}</span> },
+    { title: "หน่วยนับ",        key: "unit",                                       width: 90,  align: "center" as const, render: () => <span style={{ color: "#374151" }}>{a.unit || "-"}</span> },
   ];
 
   const antTableProps: TableProps<TableRow> = {
@@ -703,7 +701,7 @@ export function Page1Overview() {
     dataSource: tableData,
     size: "middle",
     pagination: { current: tablePage, pageSize: tablePageSize, showSizeChanger: true, pageSizeOptions: ["10","20","50"], showTotal: (total, range) => `${range[0]}-${range[1]} จาก ${total} รายการ`, locale: { items_per_page: "/หน้า", jump_to: "ไปที่", page: "หน้า" }, onChange: (p, ps) => { setTablePage(p); setTablePageSize(ps); } },
-    scroll: { x: 1200 },
+    scroll: { x: 1670 },
   };
 
   /* bar chart — only companies present in filtered rows */
@@ -747,7 +745,7 @@ export function Page1Overview() {
       <div style={{ fontSize: 12, color: "#8B8E95", marginBottom: 4 }}>ระบบ Dashboard / Dashboard</div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: "#0E1119" }}>รายงานยอดอนุญาตให้ขาย/ขนย้ายอาวุธ</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: "#0E1119" }}>ยอดอนุญาตให้ขาย/ขนย้ายอาวุธ</div>
         </div>
       </div>
 
@@ -993,13 +991,13 @@ export function Page1Overview() {
       {/* Table */}
       <div style={{ background: "#fff", borderRadius: 16, boxShadow: "0 1px 3px rgba(15,23,42,0.08)", overflow: "hidden" }}>
         <div style={{ padding: "14px 20px", borderBottom: "1px solid #F0F0F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>รายงานยอดอนุญาตให้ขาย/ขนย้ายอาวุธ</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>รายการยอดอนุญาตให้ขาย/ขนย้ายอาวุธ</span>
           <div style={{ display: "flex", gap: 8 }}>
             <button style={{ display: "flex", alignItems: "center", gap: 6, height: 36, padding: "0 14px", fontSize: 13, border: "1px solid #D1D5DB", borderRadius: 8, background: "#fff", color: "#374151", cursor: "pointer" }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#F9FAFB"; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#fff"; }}
               onClick={exportRawExcel}>
-              <FileSpreadsheet size={15} color="#059669" />Export ดิบ (Excel)
+              <FileSpreadsheet size={15} color="#059669" />Export ข้อมูล (Excel)
             </button>
           </div>
         </div>

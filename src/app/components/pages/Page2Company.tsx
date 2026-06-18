@@ -767,7 +767,7 @@ export function Page2Company() {
       <div style={{ fontSize: 12, color: "#8B8E95", marginBottom: 4 }}>ระบบ Dashboard / Dashboard</div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: "#0E1119" }}>รายงานยอดการขนย้าย/ส่งมอบอาวุธหรือวัตถุ</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: "#0E1119" }}>ยอดการขนย้าย/ส่งมอบอาวุธหรือวัตถุ</div>
         </div>
       </div>
 
@@ -1094,13 +1094,13 @@ export function Page2Company() {
       {/* Table */}
       <div style={{ background: "#fff", borderRadius: 16, boxShadow: "0 1px 3px rgba(15,23,42,0.08)", overflow: "hidden" }}>
         <div style={{ padding: "14px 20px", borderBottom: "1px solid #F0F0F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>รายงานยอดการขนย้าย/ส่งมอบอาวุธหรือวัตถุ</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>รายการยอดการขนย้าย/ส่งมอบอาวุธหรือวัตถุ</span>
           <div style={{ display: "flex", gap: 8 }}>
             <button style={{ display: "flex", alignItems: "center", gap: 6, height: 36, padding: "0 14px", fontSize: 13, border: "1px solid #D1D5DB", borderRadius: 8, background: "#fff", color: "#374151", cursor: "pointer" }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#F9FAFB"; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#fff"; }}
               onClick={exportRawExcel}>
-              <FileSpreadsheet size={15} color="#059669" />Export ดิบ (Excel)
+              <FileSpreadsheet size={15} color="#059669" />Export ข้อมูล (Excel)
             </button>
           </div>
         </div>
