@@ -744,7 +744,7 @@ export function Page1Overview() {
     <div style={{ fontFamily: FF }}>
 
       {/* Header */}
-      <div style={{ fontSize: 12, color: "#8B8E95", marginBottom: 4 }}>ระบบรายงาน / รายงาน</div>
+      <div style={{ fontSize: 12, color: "#8B8E95", marginBottom: 4 }}>ระบบ Dashboard / Dashboard</div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
           <div style={{ fontSize: 20, fontWeight: 700, color: "#0E1119" }}>รายงานยอดอนุญาตให้ขาย/ขนย้ายอาวุธ</div>

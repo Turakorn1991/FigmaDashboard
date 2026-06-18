@@ -158,6 +158,7 @@ type MockRow = RawRow & {
   dstBaan: string; dstAkhan: string; dstMoo: string; dstSoi: string; dstRoad: string;
   dstTambon: string; dstAmphoe: string; dstProvince: string; dstZip: string;
   weaponCode: string; weaponName: string;
+  transportDate: string; transportRound: number; transportQty: number;
 };
 
 const enrichRow = (r: RawRow): MockRow => {
@@ -178,6 +179,13 @@ const enrichRow = (r: RawRow): MockRow => {
     dstTambon: dst.tambon, dstAmphoe: dst.amphoe, dstProvince: dst.province, dstZip: dst.zip,
     weaponCode: r.weaponId,
     weaponName: weapon?.label ?? r.weaponId,
+    transportDate: (() => {
+      const [ty, tm, td] = r.date.split("-").map(Number);
+      const dt = new Date(ty - 543, tm - 1 + (r.id % 3), td + (r.id % 7));
+      return `${String(dt.getDate()).padStart(2,"0")}/${String(dt.getMonth()+1).padStart(2,"0")}/${dt.getFullYear()+543}`;
+    })(),
+    transportRound: (r.id % 3) + 1,
+    transportQty: Math.floor(r.qty * (0.5 + (r.id % 5) * 0.1)),
   };
 };
 
@@ -516,10 +524,15 @@ export function Page2Company() {
   const toggleCompany = (id: string) => setHiddenCompanies((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const toggleBuyer   = (id: string) => setHiddenBuyers((s)    => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
+  const buyerUnitBarRef = useRef<HTMLDivElement>(null);
   const barChartRef = useRef<HTMLDivElement>(null);
   const pieChartRef = useRef<HTMLDivElement>(null);
+  const [copiedBuyerUnit, setCopiedBuyerUnit] = useState(false);
   const [copiedBar, setCopiedBar] = useState(false);
   const [copiedPie, setCopiedPie] = useState(false);
+  const [activeBarIndex2, setActiveBarIndex2] = useState<number | undefined>(undefined);
+  const [hiddenBuyerUnits, setHiddenBuyerUnits] = useState<Set<string>>(new Set());
+  const toggleBuyerUnit = (name: string) => setHiddenBuyerUnits((s) => { const n = new Set(s); n.has(name) ? n.delete(name) : n.add(name); return n; });
 
   const captureChart = async (ref: React.RefObject<HTMLDivElement>, fn: (el: HTMLDivElement) => Promise<void>) => {
     const el = ref.current;
@@ -585,7 +598,7 @@ export function Page2Company() {
     )
   ].sort((a, b) => a.localeCompare(b, "th")).map((u) => ({ id: u, label: u }));
 
-  const totalQty = rows.reduce((s, r) => s + r.qty, 0);
+  const totalQty = rows.reduce((s, r) => s + r.transportQty, 0);
 
   const formatThaiDate = (iso: string) => {
     const [y, m, d] = iso.split("-");
@@ -602,28 +615,22 @@ export function Page2Company() {
 
   const exportRawExcel = () => {
     const headers = [
-      "เลขที่หนังสือ","วันที่อนุญาต","วันที่หมดอายุ","ประเภทขนย้าย","ผู้ประกอบการ",
-      "กลุ่มหน่วยผู้ซื้อ","หน่วยผู้ซื้อ",
-      "สถานที่ต้นทาง","บ้านเลขที่สถานที่ต้นทาง","อาคารสถานที่ต้นทาง","หมู่ที่สถานที่ต้นทาง",
-      "ซอยสถานที่ต้นทาง","ถนนสถานที่ต้นทาง","ตำบลสถานที่ต้นทาง","อำเภอสถานที่ต้นทาง",
-      "จังหวัดสถานที่ต้นทาง","รหัสไปรษณีย์สถานที่ต้นทาง",
-      "สถานที่ปลายทาง","บ้านเลขที่สถานที่ปลายทาง","อาคารสถานที่ปลายทาง","หมู่ที่สถานที่ปลายทาง",
-      "ซอยสถานที่ปลายทาง","ถนนสถานที่ปลายทาง","ตำบลสถานที่ปลายทาง","อำเภอสถานที่ปลายทาง",
-      "จังหวัดสถานที่ปลายทาง","รหัสไปรษณีย์สถานที่ปลายทาง",
-      "รหัสอาวุธ","ชื่ออาวุธ","จำนวน","หน่วยนับ",
+      "เลขที่หนังสือ อ.10","วันที่อนุญาต","วันที่หมดอายุ","ประเภทขนย้าย",
+      "ผู้ประกอบการ","กลุ่มหน่วยผู้ซื้อ","หน่วยผู้ซื้อ",
+      "รหัสอาวุธ","ชื่ออาวุธ","จำนวนที่ได้รับอนุญาต","หน่วยนับ",
+      "วันที่ขนย้าย","ครั้งที่ขนย้าย","จำนวนที่ขนย้าย","หน่วยนับ",
     ];
     const dataRows = rows.map((r) => [
-      r.docNo, formatThaiDate(r.date), r.expireDate, r.transportType, r.company,
-      BUYER_GROUPS.find((b) => b.id === r.buyerGroupId)?.label ?? "", r.buyerUnit,
-      r.company, r.srcBaan, r.srcAkhan, r.srcMoo, r.srcSoi, r.srcRoad, r.srcTambon, r.srcAmphoe, r.srcProvince, r.srcZip,
-      r.buyerUnit, r.dstBaan, r.dstAkhan, r.dstMoo, r.dstSoi, r.dstRoad, r.dstTambon, r.dstAmphoe, r.dstProvince, r.dstZip,
+      r.docNo, formatThaiDate(r.date), r.expireDate, r.transportType,
+      r.company, BUYER_GROUPS.find((b) => b.id === r.buyerGroupId)?.label ?? "", r.buyerUnit,
       r.weaponCode, r.weaponName, r.qty, a.unit || "-",
+      r.transportDate, r.transportRound, r.transportQty, a.unit || "-",
     ]);
     const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
-    ws["!cols"] = headers.map((_, i) => ({ wch: [18,14,14,24,40,20,60,40,10,10,6,14,20,14,16,20,8,60,10,10,6,14,20,14,16,20,8,12,40,10,8][i] ?? 12 }));
+    ws["!cols"] = headers.map((_, i) => ({ wch: [20,14,14,24,40,20,50,12,50,18,10,14,8,14,10][i] ?? 12 }));
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "ข้อมูลดิบ");
-    XLSX.writeFile(wb, "ข้อมูลดิบยอดอนุญาตให้ขายขนย้ายอาวุธ.xlsx");
+    XLSX.utils.book_append_sheet(wb, ws, "ยอดการขนย้าย");
+    XLSX.writeFile(wb, "ยอดการขนย้ายส่งมอบอาวุธหรือวัตถุ.xlsx");
   };
 
   const exportSummaryExcel = () => {
@@ -639,7 +646,7 @@ export function Page2Company() {
     ws["!cols"] = [{ wch: 5 }, { wch: 40 }, { wch: 20 }, { wch: 50 }, { wch: 12 }, { wch: 10 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "สรุปยอดอนุญาต");
-    XLSX.writeFile(wb, "สรุปยอดอนุญาตให้ขายขนย้ายอาวุธ.xlsx");
+    XLSX.writeFile(wb, "ยอดการขนย้ายส่งมอบอาวุธหรือวัตถุ.xlsx");
   };
 
   const getBuyerLabel = (id: string) => BUYER_GROUPS.find((b) => b.id === id)?.label ?? "";
@@ -679,23 +686,25 @@ export function Page2Company() {
   });
 
   const antColumns: TableColumnsType<TableRow> = [
-    { title: "#", key: "no", width: 52, render: (_: unknown, __: TableRow, i: number) => (tablePage - 1) * tablePageSize + i + 1 },
-    { title: "เลขที่หนังสือ อ.10", dataIndex: "docNo", key: "docNo", width: 170, ...getColSearchProps("docNo", "เลขที่หนังสือ") },
-    { title: "วันที่อนุญาต", dataIndex: "dateFormatted", key: "date", width: 130, sorter: (a, b) => a.date.localeCompare(b.date) },
-    { title: "วันที่หมดอายุ", dataIndex: "expireDate", key: "expireDate", width: 130 },
-    { title: "ประเภทขนย้าย", dataIndex: "transportType", key: "transportType", width: 200,
+    { title: "#",                   key: "no",            width: 52,  fixed: "left" as const, align: "center" as const, render: (_: unknown, __: TableRow, i: number) => (tablePage - 1) * tablePageSize + i + 1 },
+    { title: "เลขที่หนังสือ อ.10",  dataIndex: "docNo",          key: "docNo",          width: 140, ...getColSearchProps("docNo", "เลขที่หนังสือ") },
+    { title: "วันที่อนุญาต",         dataIndex: "dateFormatted",  key: "date",           width: 120, sorter: (a, b) => a.date.localeCompare(b.date) },
+    { title: "วันที่หมดอายุ",        dataIndex: "expireDate",     key: "expireDate",     width: 120 },
+    { title: "ประเภทขนย้าย",        dataIndex: "transportType",  key: "transportType",  width: 210,
       filters: TRANSPORT_TYPES.map((t) => ({ text: t, value: t })),
       onFilter: (value, record) => record.transportType === value,
-      render: (v: TransportType) => {
-        return <span>{v}</span>;
-      },
+      render: (v: TransportType) => <span>{v}</span>,
     },
-    { title: "ผู้ประกอบการ", dataIndex: "company", key: "company", sorter: (a, b) => a.company.localeCompare(b.company, "th"), ...getColSearchProps("company", "ผู้ประกอบการ") },
-    { title: "กลุ่มหน่วยผู้ซื้อ", dataIndex: "buyerGroupLabel", key: "buyerGroup", width: 180, sorter: (a, b) => a.buyerGroupLabel.localeCompare(b.buyerGroupLabel, "th"), ...getColSearchProps("buyerGroupLabel", "กลุ่มหน่วยผู้ซื้อ") },
-    { title: "หน่วยผู้ซื้อ", dataIndex: "buyerUnit", key: "buyerUnit", sorter: (a, b) => a.buyerUnit.localeCompare(b.buyerUnit, "th"), ...getColSearchProps("buyerUnit", "หน่วยผู้ซื้อ") },
-    { title: "อาวุธ", dataIndex: "weaponLabel", key: "weapon", sorter: (a, b) => a.weaponLabel.localeCompare(b.weaponLabel, "th"), ...getColSearchProps("weaponLabel", "อาวุธ") },
-    { title: "จำนวน", dataIndex: "qty", key: "qty", width: 110, align: "right" as const, sorter: (a, b) => a.qty - b.qty, render: (v: number) => <span style={{ color: PRIMARY, fontWeight: 600 }}>{v.toLocaleString()}</span> },
-    { title: "หน่วยนับ", key: "unit", width: 100, render: () => <span style={{ color: "#374151" }}>{a.unit || "-"}</span> },
+    { title: "ผู้ประกอบการ",         dataIndex: "company",        key: "company",        width: 220, sorter: (a, b) => a.company.localeCompare(b.company, "th"), ...getColSearchProps("company", "ผู้ประกอบการ") },
+    { title: "กลุ่มหน่วยผู้ซื้อ",   dataIndex: "buyerGroupLabel", key: "buyerGroup",    width: 170, sorter: (a, b) => a.buyerGroupLabel.localeCompare(b.buyerGroupLabel, "th"), ...getColSearchProps("buyerGroupLabel", "กลุ่มหน่วยผู้ซื้อ") },
+    { title: "หน่วยผู้ซื้อ",         dataIndex: "buyerUnit",      key: "buyerUnit",      width: 220, sorter: (a, b) => a.buyerUnit.localeCompare(b.buyerUnit, "th"), ...getColSearchProps("buyerUnit", "หน่วยผู้ซื้อ") },
+    { title: "อาวุธ",               dataIndex: "weaponLabel",    key: "weapon",         width: 200, sorter: (a, b) => a.weaponLabel.localeCompare(b.weaponLabel, "th"), ...getColSearchProps("weaponLabel", "อาวุธ") },
+    { title: "จำนวนที่ได้รับอนุญาต", dataIndex: "qty",           key: "qty",            width: 155, align: "right" as const, sorter: (a, b) => a.qty - b.qty, render: (v: number) => <span style={{ color: PRIMARY, fontWeight: 600 }}>{v.toLocaleString()}</span> },
+    { title: "หน่วยนับ",            key: "unit",                                         width: 80,  align: "center" as const, render: () => <span style={{ color: "#374151" }}>{a.unit || "-"}</span> },
+    { title: "วันที่ขนย้าย",        dataIndex: "transportDate",  key: "transportDate",  width: 120 },
+    { title: "ครั้งที่ขนย้าย",      dataIndex: "transportRound", key: "transportRound", width: 110, align: "center" as const, render: (v: number) => <span style={{ fontWeight: 500 }}>{v}</span> },
+    { title: "จำนวนที่ขนย้าย",      dataIndex: "transportQty",   key: "transportQty",   width: 130, align: "right" as const, sorter: (a, b) => a.transportQty - b.transportQty, render: (v: number) => <span style={{ color: "#059669", fontWeight: 600 }}>{v.toLocaleString()}</span> },
+    { title: "หน่วยนับ",            key: "unit2",                                        width: 80,  align: "center" as const, render: () => <span style={{ color: "#374151" }}>{a.unit || "-"}</span> },
   ];
 
   const antTableProps: TableProps<TableRow> = {
@@ -703,16 +712,27 @@ export function Page2Company() {
     dataSource: tableData,
     size: "middle",
     pagination: { current: tablePage, pageSize: tablePageSize, showSizeChanger: true, pageSizeOptions: ["10","20","50"], showTotal: (total, range) => `${range[0]}-${range[1]} จาก ${total} รายการ`, locale: { items_per_page: "/หน้า", jump_to: "ไปที่", page: "หน้า" }, onChange: (p, ps) => { setTablePage(p); setTablePageSize(ps); } },
-    scroll: { x: 1200 },
+    scroll: { x: 2140 },
   };
 
   /* bar chart — only companies present in filtered rows */
   const chartMap: Record<string, { id: string; name: string; qty: number }> = {};
   rows.forEach((r) => {
     if (!chartMap[r.companyId]) chartMap[r.companyId] = { id: r.companyId, name: r.company, qty: 0 };
-    chartMap[r.companyId].qty += r.qty;
+    chartMap[r.companyId].qty += r.transportQty;
   });
   const chartData = Object.values(chartMap).filter((d) => !hiddenCompanies.has(d.id)).sort((a, b) => b.qty - a.qty);
+
+  /* buyer unit Top5 bar chart */
+  const buyerUnitMap: Record<string, { name: string; qty: number }> = {};
+  rows.forEach((r) => {
+    if (!buyerUnitMap[r.buyerUnit]) buyerUnitMap[r.buyerUnit] = { name: r.buyerUnit, qty: 0 };
+    buyerUnitMap[r.buyerUnit].qty += r.transportQty;
+  });
+  const buyerUnitChartData = Object.values(buyerUnitMap)
+    .filter((d) => !hiddenBuyerUnits.has(d.name))
+    .sort((a, b) => b.qty - a.qty)
+    .slice(0, 5);
 
   /* pie chart — only buyer groups present in filtered rows */
   const PIE_COLORS = ["#6574FF", "#06B6D4", "#10B981", "#F59E0B", "#EF4444"];
@@ -721,7 +741,7 @@ export function Page2Company() {
     .filter((bg) => activeBuyerGroupIds.includes(bg.id))
     .map((bg, i) => ({
       id: bg.id, name: bg.label,
-      value: hiddenBuyers.has(bg.id) ? 0 : rows.filter((r) => r.buyerGroupId === bg.id).reduce((s, r) => s + r.qty, 0),
+      value: hiddenBuyers.has(bg.id) ? 0 : rows.filter((r) => r.buyerGroupId === bg.id).reduce((s, r) => s + r.transportQty, 0),
       color: PIE_COLORS[i % PIE_COLORS.length],
     }));
 
@@ -744,7 +764,7 @@ export function Page2Company() {
     <div style={{ fontFamily: FF }}>
 
       {/* Header */}
-      <div style={{ fontSize: 12, color: "#8B8E95", marginBottom: 4 }}>ระบบรายงาน / รายงาน</div>
+      <div style={{ fontSize: 12, color: "#8B8E95", marginBottom: 4 }}>ระบบ Dashboard / Dashboard</div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
           <div style={{ fontSize: 20, fontWeight: 700, color: "#0E1119" }}>รายงานยอดการขนย้าย/ส่งมอบอาวุธหรือวัตถุ</div>
@@ -836,22 +856,22 @@ export function Page2Company() {
         </div>
       </div>
 
-      {/* Charts */}
+      {/* Charts — top row */}
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, marginBottom: 16 }}>
 
-        {/* Bar chart */}
-        <div ref={barChartRef} style={{ background: "#fff", borderRadius: 16, padding: 20, boxShadow: "0 1px 3px rgba(15,23,42,0.08)" }}>
+        {/* Top Left: Bar chart Top5 แยกตามหน่วยผู้ซื้อ */}
+        <div ref={buyerUnitBarRef} style={{ background: "#fff", borderRadius: 16, padding: 20, boxShadow: "0 1px 3px rgba(15,23,42,0.08)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
             <div>
               <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119", marginBottom: 2 }}>{searched && a.weaponType ? `ยอดการขนย้าย/ส่งมอบ${a.weaponType}` : "ยอดการขนย้าย/ส่งมอบ"}</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>แยกตามผู้ประกอบการ{searched && a.unit ? ` (${a.unit})` : ""}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>Top 5 แยกตามหน่วยผู้ซื้อ{searched && a.unit ? ` (${a.unit})` : ""}</div>
             </div>
             <div data-capture-hide style={{ display: "flex", gap: 6 }}>
-              <button onClick={() => copyPNG(barChartRef, setCopiedBar)}
-                style={{ display: "flex", alignItems: "center", gap: 4, height: 30, padding: "0 10px", fontSize: 12, border: "1px solid #E5E7EB", borderRadius: 7, background: "#fff", color: copiedBar ? "#059669" : "#6B7280", cursor: "pointer" }}>
-                {copiedBar ? <Check size={13} /> : <Copy size={13} />}{copiedBar ? "คัดลอกแล้ว" : "Copy"}
+              <button onClick={() => copyPNG(buyerUnitBarRef, setCopiedBuyerUnit)}
+                style={{ display: "flex", alignItems: "center", gap: 4, height: 30, padding: "0 10px", fontSize: 12, border: "1px solid #E5E7EB", borderRadius: 7, background: "#fff", color: copiedBuyerUnit ? "#059669" : "#6B7280", cursor: "pointer" }}>
+                {copiedBuyerUnit ? <Check size={13} /> : <Copy size={13} />}{copiedBuyerUnit ? "คัดลอกแล้ว" : "Copy"}
               </button>
-              <button onClick={() => downloadPNG(barChartRef, "chart-company.png")}
+              <button onClick={() => downloadPNG(buyerUnitBarRef, "chart-buyerunit.png")}
                 style={{ display: "flex", alignItems: "center", gap: 4, height: 30, padding: "0 10px", fontSize: 12, border: "1px solid #E5E7EB", borderRadius: 7, background: "#fff", color: "#6B7280", cursor: "pointer" }}>
                 <Download size={13} />PNG
               </button>
@@ -861,7 +881,7 @@ export function Page2Company() {
             const CHAR_W = 7.2;
             const LINE_H = 15;
             const MAX_W = 320;
-            const yAxisW = Math.min(MAX_W, Math.max(...(chartData.map((d) => d.name.length * CHAR_W)), 80));
+            const yAxisW = Math.min(MAX_W, Math.max(...(buyerUnitChartData.map((d) => d.name.length * CHAR_W)), 80));
             const charsPerLine = Math.floor(yAxisW / CHAR_W);
             const CustomYTick = ({ x, y, payload }: { x: number; y: number; payload: { value: string } }) => {
               const words = payload.value.split(" ");
@@ -879,38 +899,38 @@ export function Page2Company() {
               );
             };
             return (
-          <ResponsiveContainer width="100%" height={Math.max(chartData.length * 52, 100)}>
-            <BarChart data={chartData} layout="vertical" margin={{ left: 10, right: 70, top: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#D1D5DB" />
-              <XAxis type="number" tick={{ fontSize: 11, fill: "#4B5563" }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : String(v)} axisLine={false} tickLine={false} />
-              <YAxis type="category" dataKey="name" width={yAxisW} tick={<CustomYTick x={0} y={0} payload={{ value: "" }} />} axisLine={false} tickLine={false} />
-              <Tooltip content={<ChartTooltip />} cursor={{ fill: "#F5F3FF" }} />
-              <Bar dataKey="qty" radius={[0, 6, 6, 0]} maxBarSize={26}
-                label={{ position: "right", fontSize: 11, fill: "#374151", fontWeight: 600, formatter: (v: number) => v.toLocaleString() }}
-                onMouseEnter={(_: unknown, index: number) => setActiveBarIndex(index)}
-                onMouseLeave={() => setActiveBarIndex(undefined)}>
-                {chartData.map((_, i) => (
-                  <Cell key={i} fill={PALETTE[i % PALETTE.length]}
-                    opacity={activeBarIndex === undefined || activeBarIndex === i ? 1 : 0.4} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+              <ResponsiveContainer width="100%" height={Math.max(buyerUnitChartData.length * 52, 100)}>
+                <BarChart data={buyerUnitChartData} layout="vertical" margin={{ left: 10, right: 70, top: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#D1D5DB" />
+                  <XAxis type="number" tick={{ fontSize: 11, fill: "#4B5563" }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : String(v)} axisLine={false} tickLine={false} />
+                  <YAxis type="category" dataKey="name" width={yAxisW} tick={<CustomYTick x={0} y={0} payload={{ value: "" }} />} axisLine={false} tickLine={false} />
+                  <Tooltip content={<ChartTooltip />} cursor={{ fill: "#F5F3FF" }} />
+                  <Bar dataKey="qty" radius={[0, 6, 6, 0]} maxBarSize={26}
+                    label={{ position: "right", fontSize: 11, fill: "#374151", fontWeight: 600, formatter: (v: number) => v.toLocaleString() }}
+                    onMouseEnter={(_: unknown, index: number) => setActiveBarIndex(index)}
+                    onMouseLeave={() => setActiveBarIndex(undefined)}>
+                    {buyerUnitChartData.map((_, i) => (
+                      <Cell key={i} fill={PALETTE[i % PALETTE.length]}
+                        opacity={activeBarIndex === undefined || activeBarIndex === i ? 1 : 0.4} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             );
           })()}
           {/* Toggle chips */}
           <div data-capture-hide style={{ marginTop: 14, borderTop: "1px solid #F3F4F6", paddingTop: 12 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <span style={{ fontSize: 11, color: "#8B8E95", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>แสดง/ซ่อน ผู้ประกอบการ</span>
-              {hiddenCompanies.size > 0 && (
-                <button onClick={() => setHiddenCompanies(new Set())} style={{ fontSize: 11, color: PRIMARY, background: "#EEF2FF", border: "none", borderRadius: 6, padding: "2px 8px", cursor: "pointer" }}>แสดงทั้งหมด</button>
+              <span style={{ fontSize: 11, color: "#8B8E95", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>แสดง/ซ่อน หน่วยผู้ซื้อ</span>
+              {hiddenBuyerUnits.size > 0 && (
+                <button onClick={() => setHiddenBuyerUnits(new Set())} style={{ fontSize: 11, color: PRIMARY, background: "#EEF2FF", border: "none", borderRadius: 6, padding: "2px 8px", cursor: "pointer" }}>แสดงทั้งหมด</button>
               )}
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {chartData.map((c, i) => {
-                const hidden = hiddenCompanies.has(c.id);
+              {Object.values(buyerUnitMap).sort((a, b) => b.qty - a.qty).slice(0, 5).map((c, i) => {
+                const hidden = hiddenBuyerUnits.has(c.name);
                 return (
-                  <button key={c.id} onClick={() => toggleCompany(c.id)}
+                  <button key={c.name} onClick={() => toggleBuyerUnit(c.name)}
                     style={{ height: 24, padding: "0 10px", fontSize: 11, borderRadius: 20, border: `1.5px solid ${hidden ? "#E5E7EB" : PALETTE[i % PALETTE.length]}`, background: hidden ? "#F9FAFB" : PALETTE[i % PALETTE.length] + "22", color: hidden ? "#9CA3AF" : PALETTE[i % PALETTE.length], cursor: "pointer", fontWeight: 500, textDecoration: hidden ? "line-through" : "none", transition: "all 0.15s" }}>
                     {c.name}
                   </button>
@@ -986,6 +1006,87 @@ export function Page2Company() {
                 );
               })}
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom: Bar chart แยกตามผู้ประกอบการ */}
+      <div ref={barChartRef} style={{ background: "#fff", borderRadius: 16, padding: 20, boxShadow: "0 1px 3px rgba(15,23,42,0.08)", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119", marginBottom: 2 }}>{searched && a.weaponType ? `ยอดการขนย้าย/ส่งมอบ${a.weaponType}` : "ยอดการขนย้าย/ส่งมอบ"}</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>แยกตามผู้ประกอบการ{searched && a.unit ? ` (${a.unit})` : ""}</div>
+          </div>
+          <div data-capture-hide style={{ display: "flex", gap: 6 }}>
+            <button onClick={() => copyPNG(barChartRef, setCopiedBar)}
+              style={{ display: "flex", alignItems: "center", gap: 4, height: 30, padding: "0 10px", fontSize: 12, border: "1px solid #E5E7EB", borderRadius: 7, background: "#fff", color: copiedBar ? "#059669" : "#6B7280", cursor: "pointer" }}>
+              {copiedBar ? <Check size={13} /> : <Copy size={13} />}{copiedBar ? "คัดลอกแล้ว" : "Copy"}
+            </button>
+            <button onClick={() => downloadPNG(barChartRef, "chart-company.png")}
+              style={{ display: "flex", alignItems: "center", gap: 4, height: 30, padding: "0 10px", fontSize: 12, border: "1px solid #E5E7EB", borderRadius: 7, background: "#fff", color: "#6B7280", cursor: "pointer" }}>
+              <Download size={13} />PNG
+            </button>
+          </div>
+        </div>
+        {(() => {
+          const CHAR_W = 7.2;
+          const LINE_H = 15;
+          const MAX_W = 320;
+          const yAxisW = Math.min(MAX_W, Math.max(...(chartData.map((d) => d.name.length * CHAR_W)), 80));
+          const charsPerLine = Math.floor(yAxisW / CHAR_W);
+          const CustomYTick2 = ({ x, y, payload }: { x: number; y: number; payload: { value: string } }) => {
+            const words = payload.value.split(" ");
+            const lines: string[] = [];
+            let cur = "";
+            words.forEach((w) => { if ((cur + (cur ? " " : "") + w).length <= charsPerLine) { cur += (cur ? " " : "") + w; } else { if (cur) lines.push(cur); cur = w; } });
+            if (cur) lines.push(cur);
+            const offsetY = -((lines.length - 1) * LINE_H) / 2;
+            return (
+              <g transform={`translate(${x},${y})`}>
+                {lines.map((l, i) => (
+                  <text key={i} x={-6} y={offsetY + i * LINE_H} textAnchor="end" fill="#111827" fontSize={11} dominantBaseline="middle">{l}</text>
+                ))}
+              </g>
+            );
+          };
+          return (
+            <ResponsiveContainer width="100%" height={Math.max(chartData.length * 52, 100)}>
+              <BarChart data={chartData} layout="vertical" margin={{ left: 10, right: 70, top: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#D1D5DB" />
+                <XAxis type="number" tick={{ fontSize: 11, fill: "#4B5563" }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : String(v)} axisLine={false} tickLine={false} />
+                <YAxis type="category" dataKey="name" width={yAxisW} tick={<CustomYTick2 x={0} y={0} payload={{ value: "" }} />} axisLine={false} tickLine={false} />
+                <Tooltip content={<ChartTooltip />} cursor={{ fill: "#F5F3FF" }} />
+                <Bar dataKey="qty" radius={[0, 6, 6, 0]} maxBarSize={26}
+                  label={{ position: "right", fontSize: 11, fill: "#374151", fontWeight: 600, formatter: (v: number) => v.toLocaleString() }}
+                  onMouseEnter={(_: unknown, index: number) => setActiveBarIndex2(index)}
+                  onMouseLeave={() => setActiveBarIndex2(undefined)}>
+                  {chartData.map((_, i) => (
+                    <Cell key={i} fill={PALETTE[i % PALETTE.length]}
+                      opacity={activeBarIndex2 === undefined || activeBarIndex2 === i ? 1 : 0.4} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          );
+        })()}
+        {/* Toggle chips */}
+        <div data-capture-hide style={{ marginTop: 14, borderTop: "1px solid #F3F4F6", paddingTop: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <span style={{ fontSize: 11, color: "#8B8E95", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>แสดง/ซ่อน ผู้ประกอบการ</span>
+            {hiddenCompanies.size > 0 && (
+              <button onClick={() => setHiddenCompanies(new Set())} style={{ fontSize: 11, color: PRIMARY, background: "#EEF2FF", border: "none", borderRadius: 6, padding: "2px 8px", cursor: "pointer" }}>แสดงทั้งหมด</button>
+            )}
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {chartData.map((c, i) => {
+              const hidden = hiddenCompanies.has(c.id);
+              return (
+                <button key={c.id} onClick={() => toggleCompany(c.id)}
+                  style={{ height: 24, padding: "0 10px", fontSize: 11, borderRadius: 20, border: `1.5px solid ${hidden ? "#E5E7EB" : PALETTE[i % PALETTE.length]}`, background: hidden ? "#F9FAFB" : PALETTE[i % PALETTE.length] + "22", color: hidden ? "#9CA3AF" : PALETTE[i % PALETTE.length], cursor: "pointer", fontWeight: 500, textDecoration: hidden ? "line-through" : "none", transition: "all 0.15s" }}>
+                  {c.name}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>

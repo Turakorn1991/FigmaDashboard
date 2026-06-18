@@ -111,9 +111,9 @@ export function Sidebar({ activePage, onPageChange }: SidebarProps) {
           <span style={{ display: "flex", alignItems: "center", gap: 10 }}><Building2 size={16} />ข้อมูลผู้ประกอบการ รง.4</span>
         </button>
 
-        {/* Section: ระบบรายงาน (ล่างสุด) */}
+        {/* Section: ระบบ Dashboard (ล่างสุด) */}
         <div style={{ fontSize: 12, color: "#fff", padding: "10px 20px", marginTop: 4 }}>
-          ระบบรายงาน
+          ระบบ Dashboard
         </div>
 
         <button
@@ -122,7 +122,7 @@ export function Sidebar({ activePage, onPageChange }: SidebarProps) {
           onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.05)"; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
         >
-          <span style={{ display: "flex", alignItems: "center", gap: 10 }}><BarChart2 size={16} />รายงาน</span>
+          <span style={{ display: "flex", alignItems: "center", gap: 10 }}><BarChart2 size={16} />Dashboard</span>
           {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
         </button>
 
