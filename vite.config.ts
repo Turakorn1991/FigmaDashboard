@@ -17,7 +17,8 @@ function figmaAssetResolver() {
 }
 
 export default defineConfig({
-  base: "./",
+  // Deploy ใต้ sub-path /pamfmockup — ใช้ absolute base เพื่อให้ asset + client-routing ทำงานทุกระดับ path
+  base: "/pamfmockup/",
   plugins: [
     figmaAssetResolver(),
     // The React and Tailwind plugins are both required for Make, even if

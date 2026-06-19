@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Table, ConfigProvider } from "antd";
 import type { TableColumnsType, TableProps } from "antd";
 import * as XLSX from "xlsx";
+import { BUYER_UNITS } from "../../data/buyerUnits";
 
 const PRIMARY = "#6574FF";
 const FF = "'Noto Sans Thai', Inter, sans-serif";
@@ -500,18 +501,19 @@ export function Page2Company() {
   const [f_unit,        setUnit]        = useState("");
   const [f_weapons,     setWeapons]     = useState<string[]>([]);
   const [f_region,      setRegion]      = useState("");
-  const [f_buyers,      setBuyers]      = useState<string[]>([]);
-  const [f_buyerUnits,  setBuyerUnits]  = useState<string[]>([]);
-  const [a, setA] = useState({ companies: [] as string[], weaponType: "", unit: "", region: "", buyers: [] as string[], buyerUnits: [] as string[], weapons: [] as string[] });
+  const [f_buyers,         setBuyers]         = useState<string[]>([]);
+  const [f_buyerUnits,     setBuyerUnits]     = useState<string[]>([]);
+  const [f_transportTypes, setTransportTypes] = useState<string[]>([]);
+  const [a, setA] = useState({ companies: [] as string[], weaponType: "", unit: "", region: "", buyers: [] as string[], buyerUnits: [] as string[], weapons: [] as string[], transportTypes: [] as string[] });
   const [searched, setSearched] = useState(false);
   const [tablePage, setTablePage] = useState(1);
   const [tablePageSize, setTablePageSize] = useState(10);
 
-  const handleSearch = () => { setA({ companies: f_companies, weaponType: f_weaponType, unit: f_unit, region: f_region, buyers: f_buyers, buyerUnits: f_buyerUnits, weapons: f_weapons }); setSearched(true); setTablePage(1); };
+  const handleSearch = () => { setA({ companies: f_companies, weaponType: f_weaponType, unit: f_unit, region: f_region, buyers: f_buyers, buyerUnits: f_buyerUnits, weapons: f_weapons, transportTypes: f_transportTypes }); setSearched(true); setTablePage(1); };
   const handleReset  = () => {
     setDateFrom(""); setDateTo(""); setCompanies([]); setWeaponType(""); setUnit(""); setWeapons([]);
-    setRegion(""); setBuyers([]); setBuyerUnits([]);
-    setA({ companies: [], weaponType: "", unit: "", region: "", buyers: [], buyerUnits: [], weapons: [] });
+    setRegion(""); setBuyers([]); setBuyerUnits([]); setTransportTypes([]);
+    setA({ companies: [], weaponType: "", unit: "", region: "", buyers: [], buyerUnits: [], weapons: [], transportTypes: [] });
     setSearched(false);
   };
 
@@ -571,6 +573,7 @@ export function Page2Company() {
   /* filtered rows */
   const rows = !searched ? [] : MOCK_ROWS.filter((r) => {
     if (a.companies.length && !a.companies.includes(r.companyId)) return false;
+    if (a.transportTypes.length && !a.transportTypes.includes(r.transportType)) return false;
     if (a.region   && r.regionId !== a.region)                    return false;
     if (a.buyers.length    && !a.buyers.includes(r.buyerGroupId)) return false;
     if (a.buyerUnits.length && !a.buyerUnits.includes(r.buyerUnit)) return false;
@@ -590,13 +593,9 @@ export function Page2Company() {
     ? WEAPONS.filter((w) => WEAPON_TYPE_FILTER[f_weaponType]?.(w) ?? true)
     : [];
 
-  const buyerUnitOptions = [
-    ...new Set(
-      MOCK_ROWS
-        .filter((r) => f_buyers.length === 0 || f_buyers.includes(r.buyerGroupId))
-        .map((r) => r.buyerUnit)
-    )
-  ].sort((a, b) => a.localeCompare(b, "th")).map((u) => ({ id: u, label: u }));
+  const buyerUnitOptions = BUYER_UNITS
+    .filter((u) => f_buyers.length === 0 || f_buyers.includes(u.group))
+    .map((u) => ({ id: u.name, label: u.name }));
 
   const totalQty = rows.reduce((s, r) => s + r.transportQty, 0);
 
@@ -767,7 +766,7 @@ export function Page2Company() {
       <div style={{ fontSize: 12, color: "#8B8E95", marginBottom: 4 }}>ระบบ Dashboard / Dashboard</div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: "#0E1119" }}>ยอดการขนย้าย/ส่งมอบอาวุธหรือวัตถุ</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: "#0E1119" }}>ยอดการขนย้าย/ส่งมอบอาวุธหรือวัตถุ ตามแบบ อ.10</div>
         </div>
       </div>
 
@@ -775,8 +774,8 @@ export function Page2Company() {
       <div style={{ background: "#fff", borderRadius: 16, padding: 24, boxShadow: "0 1px 3px rgba(15,23,42,0.08)", marginBottom: 16 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "#0E1119", marginBottom: 16 }}>ค้นหาข้อมูล</div>
 
-        {/* Row 1: วันที่ขนย้าย เริ่มเริ่ม 1/4 | วันที่ขนย้าย เริ่มสิ้นสุด 1/4 | ผู้ประกอบการ 2/4 */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: 12, marginBottom: 12 }}>
+        {/* Row 1: วันที่ขนย้าย เริ่ม | วันที่ขนย้าย สิ้นสุด | ประเภทขนย้าย | ผู้ประกอบการ */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
           <div>
             <label style={LBL}>วันที่ขนย้าย เริ่ม</label>
             <ThaiDatePicker value={f_dateFrom} onChange={setDateFrom} />
@@ -786,6 +785,12 @@ export function Page2Company() {
             <ThaiDatePicker value={f_dateTo} onChange={setDateTo} />
           </div>
           <div>
+            <label style={LBL}>ประเภทขนย้าย</label>
+            <MultiSelect placeholder="ทั้งหมด"
+              options={TRANSPORT_TYPES.map((t) => ({ id: t, label: t }))}
+              selected={f_transportTypes} onChange={setTransportTypes} />
+          </div>
+          <div>
             <label style={LBL}>ผู้ประกอบการ</label>
             <MultiSelect placeholder="ทั้งหมด"
               options={COMPANIES.map((c) => ({ id: c.id, label: c.name }))}
@@ -793,7 +798,7 @@ export function Page2Company() {
           </div>
         </div>
 
-        {/* Row 2: ภาค 1/4 | กลุ่มหน่วยผู้ซื้อ 1/4 | หน่วยผู้ซื้อ 2/4 */}
+        {/* Row 2: ภาค | กลุ่มหน่วยผู้ซื้อ | หน่วยผู้ซื้อ */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: 12, marginBottom: 12 }}>
           <div>
             <label style={LBL}>ภาค</label>
@@ -918,6 +923,10 @@ export function Page2Company() {
               </ResponsiveContainer>
             );
           })()}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 4px 0", borderTop: "1px solid #F3F4F6", marginTop: 8 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "#0E1119", flex: 1 }}>ยอดรวม</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: PRIMARY }}>{buyerUnitChartData.reduce((s, d) => s + d.qty, 0).toLocaleString()}{a.unit ? ` ${a.unit}` : ""}</span>
+          </div>
           {/* Toggle chips */}
           <div data-capture-hide style={{ marginTop: 14, borderTop: "1px solid #F3F4F6", paddingTop: 12 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
@@ -986,6 +995,10 @@ export function Page2Company() {
                 </div>
               );
             })}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 4px 0", borderTop: "1px solid #F3F4F6", marginTop: 2 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "#0E1119", flex: 1 }}>ยอดรวม</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: PRIMARY }}>{buyerPieData.reduce((s, d) => s + d.value, 0).toLocaleString()}{a.unit ? ` ${a.unit}` : ""}</span>
+            </div>
           </div>
           {/* Toggle chips */}
           <div data-capture-hide style={{ marginTop: 12, borderTop: "1px solid #F3F4F6", paddingTop: 12 }}>
@@ -1069,6 +1082,10 @@ export function Page2Company() {
             </ResponsiveContainer>
           );
         })()}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 4px 0", borderTop: "1px solid #F3F4F6", marginTop: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#0E1119", flex: 1 }}>ยอดรวม</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: PRIMARY }}>{chartData.reduce((s, d) => s + d.qty, 0).toLocaleString()}{a.unit ? ` ${a.unit}` : ""}</span>
+        </div>
         {/* Toggle chips */}
         <div data-capture-hide style={{ marginTop: 14, borderTop: "1px solid #F3F4F6", paddingTop: 12 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
@@ -1094,7 +1111,7 @@ export function Page2Company() {
       {/* Table */}
       <div style={{ background: "#fff", borderRadius: 16, boxShadow: "0 1px 3px rgba(15,23,42,0.08)", overflow: "hidden" }}>
         <div style={{ padding: "14px 20px", borderBottom: "1px solid #F0F0F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>รายการยอดการขนย้าย/ส่งมอบอาวุธหรือวัตถุ</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>รายการยอดการขนย้าย/ส่งมอบอาวุธหรือวัตถุ ตามแบบ อ.10</span>
           <div style={{ display: "flex", gap: 8 }}>
             <button style={{ display: "flex", alignItems: "center", gap: 6, height: 36, padding: "0 14px", fontSize: 13, border: "1px solid #D1D5DB", borderRadius: 8, background: "#fff", color: "#374151", cursor: "pointer" }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#F9FAFB"; }}

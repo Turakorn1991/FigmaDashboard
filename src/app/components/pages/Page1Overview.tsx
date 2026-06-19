@@ -4,236 +4,40 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Table, ConfigProvider } from "antd";
 import type { TableColumnsType, TableProps } from "antd";
 import * as XLSX from "xlsx";
+import {
+  loadMoveRows, COMPANY_OPTIONS, WEAPON_OPTIONS, UNIT_OPTIONS, TRANSPORT_OPTIONS,
+  WEAPON_CATEGORY_OPTIONS, REGION_OPTIONS, BUYER_GROUP_OPTIONS, BUYER_UNIT_OPTIONS,
+} from "../../data/moveLicense";
+import type { MoveRow } from "../../data/moveLicense";
 
 const PRIMARY = "#6574FF";
 const FF = "'Noto Sans Thai', Inter, sans-serif";
 const PALETTE = ["#6574FF", "#06B6D4", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#0EA5E9", "#14B8A6", "#F97316"];
 
-const COMPANIES = [
-  { id: "1",  name: "บริษัท เนแรค อาร์มส อินดัสตรี จำกัด" },
-  { id: "2",  name: "บริษัท ณธรรศชาตรี จำกัด" },
-  { id: "3",  name: "บริษัท รอยัล แอมมูนิชั่น จำกัด" },
-  { id: "4",  name: "บริษัท พี.วี.เอ็กซโพลซิฟ (ไทยแลนด์) จำกัด" },
-  { id: "5",  name: "บริษัท อัสพรรณ เอ็กซ์โพลซีฟ จำกัด" },
-  { id: "6",  name: "บริษัท บุลเล็ท มาสเตอร์ จำกัด" },
-  { id: "7",  name: "บริษัท ใช้ เอ็กซ์โพลซีฟส์ จำกัด" },
-  { id: "8",  name: "บริษัท ไทยอามส์ จำกัด" },
-  { id: "14", name: "บริษัท สยาม แอมมูนิชั่น จำกัด" },
-  { id: "15", name: "บริษัท ไทย ทรัพย์นคร จำกัด" },
-];
+// ── DDL ทั้งหมดมาจากข้อมูลจริง (docs/export_move_license.xlsx) ──
+const COMPANIES = COMPANY_OPTIONS;
+const BUYER_GROUPS = BUYER_GROUP_OPTIONS;
+const REGIONS = REGION_OPTIONS.map((name) => ({ id: name, label: name }));
+const WEAPONS = WEAPON_OPTIONS.map((w) => ({ id: w.id, label: w.name, category: w.category }));
 
-const BUYER_GROUPS = [
-  { id: "1", label: "ทหาร" },
-  { id: "2", label: "ตำรวจ" },
-  { id: "3", label: "สมาคม" },
-  { id: "9", label: "อื่น ๆ" },
-  { id: "0", label: "ไม่ระบุ" },
-];
+const TRANSPORT_TYPES = TRANSPORT_OPTIONS;
+type TransportType = string;
 
-const REGIONS = [
-  { id: "C",  label: "ภาคกลาง" },
-  { id: "E",  label: "ภาคตะวันออก" },
-  { id: "W",  label: "ภาคตะวันตก" },
-  { id: "N",  label: "ภาคเหนือ" },
-  { id: "NE", label: "ภาคตะวันออกเฉียงเหนือ" },
-  { id: "S",  label: "ภาคใต้" },
-];
+const PURCHASE_DOCS = ["หนังสือขอซื้อ", "ใบสั่งซื้อ", "สัญญาซื้อขายรัฐ", "ไม่ระบุ"] as const;
+type PurchaseDoc = typeof PURCHASE_DOCS[number];
 
-const WEAPONS = [
-  { id: "P-0026", label: "กระสุนปืน .32 นิ้ว (จริง)" },
-  { id: "P-0027", label: "กระสุนปืน .357 นิ้ว (จริง)" },
-  { id: "P-0028", label: "กระสุนปืน .380 นิ้ว (จริง)" },
-  { id: "P-0031", label: "กระสุนปืน .40 นิ้ว (จริง)" },
-  { id: "P-0032", label: "กระสุนปืน .44 นิ้ว (จริง)" },
-  { id: "P-0033", label: "กระสุนปืน .45 นิ้ว (จริง)" },
-  { id: "P-0034", label: "กระสุนปืน 9 มิลลิเมตร (จริง)" },
-  { id: "P-0035", label: "กระสุนปืน 5.56 มิลลิเมตร (จริง)" },
-  { id: "P-0036", label: "กระสุนปืน 7.62 มิลลิเมตร (จริง)" },
-  { id: "P-0037", label: "กระสุนปืน 6.35 มิลลิเมตร (จริง)" },
-  { id: "P-0038", label: "กระสุนปืน .22 นิ้ว (จริง)" },
-  { id: "P-0039", label: "กระสุนปืน .38 นิ้ว (จริง)" },
-  { id: "P-0040", label: "กระสุนปืนลูกซอง 12 เกจ (จริง)" },
-  { id: "P-0041", label: "กระสุนปืนลูกซอง 16 เกจ (จริง)" },
-  { id: "P-0042", label: "กระสุนปืนลูกซอง 20 เกจ (จริง)" },
-  { id: "P-0050", label: "กระสุนปืนไรเฟิล .223 นิ้ว" },
-  { id: "P-0051", label: "กระสุนปืนไรเฟิล .308 นิ้ว" },
-  { id: "P-0052", label: "กระสุนปืนไรเฟิล .30-06 นิ้ว" },
-  { id: "P-0053", label: "กระสุนปืนไรเฟิล 7.62x39 มม." },
-  { id: "P-0054", label: "กระสุนปืนไรเฟิล 7.62x54R มม." },
-  { id: "P-0060", label: "กระสุนปืนกล 12.7 มิลลิเมตร" },
-  { id: "P-0061", label: "กระสุนปืนกล 14.5 มิลลิเมตร" },
-  { id: "P-0062", label: "กระสุนปืนกลเบา 5.56 มิลลิเมตร" },
-  { id: "P-0063", label: "กระสุนปืนกลเบา 7.62 มิลลิเมตร" },
-  { id: "P-0070", label: "กระสุนฝึก .32 นิ้ว" },
-  { id: "P-0071", label: "กระสุนฝึก .38 นิ้ว" },
-  { id: "P-0072", label: "กระสุนฝึก 9 มิลลิเมตร" },
-  { id: "P-0073", label: "กระสุนฝึก 5.56 มิลลิเมตร" },
-  { id: "P-0074", label: "กระสุนฝึก 7.62 มิลลิเมตร" },
-  { id: "P-0080", label: "กระสุนยาง (ควบคุมฝูงชน)" },
-  { id: "P-0081", label: "กระสุนแก๊สน้ำตา" },
-  { id: "P-0082", label: "กระสุนสีทำเครื่องหมาย" },
-  { id: "P-0090", label: "ระเบิดมือ (สังหาร)" },
-  { id: "P-0091", label: "ระเบิดมือ (ควัน)" },
-  { id: "P-0092", label: "ระเบิดมือ (แสงสว่าง)" },
-  { id: "P-0100", label: "ระเบิด RPG-7" },
-  { id: "P-0101", label: "ระเบิด M72 LAW" },
-  { id: "P-0110", label: "กระสุนปืนใหญ่ 105 มม." },
-  { id: "P-0111", label: "กระสุนปืนใหญ่ 155 มม." },
-  { id: "P-0120", label: "กระสุนครก 60 มม." },
-  { id: "P-0121", label: "กระสุนครก 81 มม." },
-  { id: "P-0122", label: "กระสุนครก 120 มม." },
-  { id: "P-0130", label: "กระสุนเจาะเกราะ HEAT" },
-  { id: "P-0131", label: "กระสุนเจาะเกราะ APDS" },
-  { id: "P-0140", label: "จรวด 2.75 นิ้ว" },
-  { id: "P-0141", label: "จรวด 5 นิ้ว" },
-  { id: "P-0150", label: "ทุ่นระเบิดสังหารบุคคล" },
-  { id: "P-0151", label: "ทุ่นระเบิดต่อสู้รถถัง" },
-  { id: "P-0160", label: "วัตถุระเบิด TNT" },
-  { id: "P-0161", label: "วัตถุระเบิด C-4" },
-  { id: "P-0162", label: "วัตถุระเบิด Semtex" },
-  { id: "P-0170", label: "ดินปืนไร้ควัน" },
-  { id: "P-0171", label: "ดินปืนดำ" },
-  { id: "P-0180", label: "ชนวนระเบิด (ไฟฟ้า)" },
-  { id: "P-0181", label: "ชนวนระเบิด (ไม่ใช้ไฟฟ้า)" },
-  { id: "P-0190", label: "กระสุน .50 BMG" },
-  { id: "P-0191", label: "กระสุน 20 มม. (ปืนใหญ่อากาศ)" },
-  { id: "P-0192", label: "กระสุน 23 มม. (ปืนใหญ่อากาศ)" },
-  { id: "P-0193", label: "กระสุน 30 มม. (ปืนใหญ่อากาศ)" },
-  { id: "P-0500", label: "อาวุธปืนพก (ประเภท A)" },
-  { id: "P-0501", label: "อาวุธปืนพก (ประเภท B)" },
-  { id: "P-0510", label: "ปืนเล็กยาวอัตโนมัติ" },
-  { id: "P-0511", label: "ปืนเล็กยาวกึ่งอัตโนมัติ" },
-  { id: "P-0520", label: "ปืนกลมือ" },
-  { id: "P-0530", label: "ปืนลูกซองสั้น" },
-  { id: "P-0531", label: "ปืนลูกซองยาว" },
-  { id: "P-1000", label: "อาวุธต่อสู้รถถัง (ATM)" },
-  { id: "P-1001", label: "อาวุธนำวิถีต่อสู้อากาศยาน (SAM)" },
-  { id: "P-1939", label: "อาวุธอื่นๆ ตามที่กำหนด" },
-];
-
-const WEAPON_TYPE_FILTER: Record<string, (w: { id: string; label: string }) => boolean> = {
-  "กระสุน":   (w) => /^(กระสุน|จรวด|ดินปืน|ชนวน)/.test(w.label),
-  "ระเบิด":   (w) => /ระเบิด/.test(w.label),
-  "อาวุธปืน": (w) => /^(อาวุธปืน|ปืน)/.test(w.label),
+// ── ข้อมูลจริง (โหลด async จาก JSON) + field alias ให้เข้ากับโค้ดเดิม ──
+type MockRow = MoveRow & {
+  regionId: string; weaponId: string; date: string; expireDate: string; purchaseDoc: PurchaseDoc;
 };
-
-interface RawRow {
-  id: number; companyId: string; company: string;
-  buyerGroupId: string; buyerUnit: string; regionId: string; weaponId: string;
-  qty: number; date: string; status: string;
-}
-
-// ── ข้อมูล address mock ต่อผู้ประกอบการ (simulate API response) ──
-const COMPANY_ADDR: Record<string, { baan: string; moo: string; soi: string; road: string; tambon: string; amphoe: string; province: string; zip: string }> = {
-  "1":  { baan:"99/1",  moo:"3", soi:"สุขุมวิท 71",   road:"สุขุมวิท",       tambon:"พระโขนงเหนือ", amphoe:"วัฒนา",        province:"กรุงเทพมหานคร", zip:"10110" },
-  "2":  { baan:"45",    moo:"2", soi:"-",              road:"วิภาวดีรังสิต",  tambon:"จตุจักร",      amphoe:"จตุจักร",      province:"กรุงเทพมหานคร", zip:"10900" },
-  "3":  { baan:"12/3",  moo:"1", soi:"ลาดพร้าว 41",   road:"ลาดพร้าว",      tambon:"จอมพล",        amphoe:"จตุจักร",      province:"กรุงเทพมหานคร", zip:"10900" },
-  "4":  { baan:"88",    moo:"5", soi:"-",              road:"พระรามที่ 9",    tambon:"บางกะปิ",      amphoe:"ห้วยขวาง",     province:"กรุงเทพมหานคร", zip:"10310" },
-  "5":  { baan:"200",   moo:"4", soi:"เพชรบุรี 7",    road:"เพชรบุรี",       tambon:"มักกะสัน",     amphoe:"ราษฎร์บูรณะ",  province:"กรุงเทพมหานคร", zip:"10400" },
-  "6":  { baan:"33/2",  moo:"2", soi:"-",              road:"รัชดาภิเษก",     tambon:"ดินแดง",       amphoe:"ดินแดง",       province:"กรุงเทพมหานคร", zip:"10400" },
-  "7":  { baan:"55",    moo:"6", soi:"สาทร 12",        road:"สาทรใต้",        tambon:"ยานนาวา",      amphoe:"สาทร",         province:"กรุงเทพมหานคร", zip:"10120" },
-  "8":  { baan:"77/4",  moo:"1", soi:"-",              road:"พหลโยธิน",       tambon:"สามเสนใน",     amphoe:"พญาไท",        province:"กรุงเทพมหานคร", zip:"10400" },
-  "9":  { baan:"10",    moo:"3", soi:"นวมินทร์ 20",   road:"นวมินทร์",       tambon:"คลองกุ่ม",     amphoe:"บึงกุ่ม",      province:"กรุงเทพมหานคร", zip:"10230" },
-  "10": { baan:"66/1",  moo:"2", soi:"-",              road:"บางนา-ตราด",     tambon:"บางนา",        amphoe:"บางนา",        province:"กรุงเทพมหานคร", zip:"10260" },
-  "14": { baan:"21/1",  moo:"1", soi:"ราษฎร์พัฒนา 3", road:"ราษฎร์พัฒนา",   tambon:"สะพานสูง",     amphoe:"สะพานสูง",     province:"กรุงเทพมหานคร", zip:"10240" },
-  "15": { baan:"158",   moo:"7", soi:"-",              road:"เจริญกรุง",       tambon:"วังบูรพาภิรมย์",amphoe:"พระนคร",      province:"กรุงเทพมหานคร", zip:"10200" },
-};
-
-const REGION_PROVINCE: Record<string, { province: string; amphoe: string; tambon: string; zip: string }> = {
-  "C":  { province:"กรุงเทพมหานคร",          amphoe:"พระนคร",        tambon:"พระบรมมหาราชวัง", zip:"10200" },
-  "N":  { province:"เชียงใหม่",               amphoe:"เมืองเชียงใหม่", tambon:"ช้างเผือก",       zip:"50300" },
-  "NE": { province:"ขอนแก่น",                 amphoe:"เมืองขอนแก่น",  tambon:"ในเมือง",          zip:"40000" },
-  "S":  { province:"สงขลา",                   amphoe:"เมืองสงขลา",    tambon:"บ่อยาง",           zip:"90000" },
-  "E":  { province:"ชลบุรี",                  amphoe:"เมืองชลบุรี",   tambon:"บางปลาสร้อย",     zip:"20000" },
-  "W":  { province:"กาญจนบุรี",               amphoe:"เมืองกาญจนบุรี",tambon:"ปากแพรก",          zip:"71000" },
-};
-
-const TRANSPORT_TYPES = ["ขนย้าย", "ขายขนย้ายในราชอาณาจักร", "ขายขนย้ายนอกราชอาณาจักร"] as const;
-type TransportType = typeof TRANSPORT_TYPES[number];
-
-type MockRow = RawRow & {
-  docNo: string; expireDate: string; transportType: TransportType;
-  srcBaan: string; srcAkhan: string; srcMoo: string; srcSoi: string; srcRoad: string;
-  srcTambon: string; srcAmphoe: string; srcProvince: string; srcZip: string;
-  dstBaan: string; dstAkhan: string; dstMoo: string; dstSoi: string; dstRoad: string;
-  dstTambon: string; dstAmphoe: string; dstProvince: string; dstZip: string;
-  weaponCode: string; weaponName: string;
-};
-
-const enrichRow = (r: RawRow): MockRow => {
-  const src = COMPANY_ADDR[r.companyId] ?? COMPANY_ADDR["1"];
-  const dst = REGION_PROVINCE[r.regionId] ?? REGION_PROVINCE["C"];
-  const [y, m, d] = r.date.split("-").map(Number);
-  const exp = new Date(y - 543, m - 1 + 12, d);
-  const expStr = `${String(exp.getDate()).padStart(2,"0")}/${String(exp.getMonth()+1).padStart(2,"0")}/${exp.getFullYear()+543}`;
-  const weapon = WEAPONS.find((w) => w.id === r.weaponId);
-  return {
-    ...r,
-    docNo: `${String(r.id).padStart(3,"0")}/${r.date.slice(0,4)}`,
-    expireDate: expStr,
-    transportType: TRANSPORT_TYPES[r.id % 3],
-    srcBaan: src.baan, srcAkhan: "-", srcMoo: src.moo, srcSoi: src.soi, srcRoad: src.road,
-    srcTambon: src.tambon, srcAmphoe: src.amphoe, srcProvince: src.province, srcZip: src.zip,
-    dstBaan: "-", dstAkhan: "-", dstMoo: "-", dstSoi: "-", dstRoad: "-",
-    dstTambon: dst.tambon, dstAmphoe: dst.amphoe, dstProvince: dst.province, dstZip: dst.zip,
-    weaponCode: r.weaponId,
-    weaponName: weapon?.label ?? r.weaponId,
-  };
-};
-
-const MOCK_ROWS: MockRow[] = ([
-  // บริษัท เนแรค อาร์มส (1)
-  { id:1,  companyId:"1",  company:"บริษัท เนแรค อาร์มส อินดัสตรี จำกัด",         buyerGroupId:"1", buyerUnit:"กองพันทหารม้าที่ 4 กองพลที่ 1 รักษาพระองค์",                          regionId:"N",  weaponId:"P-0036", qty:150000, date:"2568-01-10", status:"อนุมัติ" },
-  { id:2,  companyId:"1",  company:"บริษัท เนแรค อาร์มส อินดัสตรี จำกัด",         buyerGroupId:"2", buyerUnit:"กองร้อยตำรวจตระเวนชายแดนที่ 414",                                      regionId:"C",  weaponId:"P-0035", qty:42000,  date:"2568-02-15", status:"อนุมัติ" },
-  { id:3,  companyId:"1",  company:"บริษัท เนแรค อาร์มส อินดัสตรี จำกัด",         buyerGroupId:"3", buyerUnit:"สมาคมยิงปืนเขาเขียวนครสวรรค์",                                        regionId:"E",  weaponId:"P-0050", qty:5500,   date:"2568-03-20", status:"อนุมัติ" },
-  { id:4,  companyId:"1",  company:"บริษัท เนแรค อาร์มส อินดัสตรี จำกัด",         buyerGroupId:"9", buyerUnit:"สำนักป้องกันรักษาป่าและควบคุมไฟป่า กรมป่าไม้ กรุงเทพ ฯ",            regionId:"W",  weaponId:"P-0034", qty:8800,   date:"2568-04-05", status:"กำลังดำเนินการ" },
-  { id:5,  companyId:"1",  company:"บริษัท เนแรค อาร์มส อินดัสตรี จำกัด",         buyerGroupId:"0", buyerUnit:"-",                                                                     regionId:"S",  weaponId:"P-0033", qty:2100,   date:"2568-05-12", status:"อนุมัติ" },
-  { id:6,  companyId:"2",  company:"บริษัท ณธรรศชาตรี จำกัด",                      buyerGroupId:"1", buyerUnit:"กรมทหารราบที่ 6 ค่ายสรรพสิทธิประสงค์",                               regionId:"NE", weaponId:"P-0063", qty:68000,  date:"2568-01-18", status:"อนุมัติ" },
-  { id:7,  companyId:"2",  company:"บริษัท ณธรรศชาตรี จำกัด",                      buyerGroupId:"2", buyerUnit:"ศูนย์ฝึกอบรมตำรวจภูธรภาค 6",                                         regionId:"N",  weaponId:"P-0034", qty:25000,  date:"2568-02-22", status:"อนุมัติ" },
-  { id:8,  companyId:"2",  company:"บริษัท ณธรรศชาตรี จำกัด",                      buyerGroupId:"3", buyerUnit:"สมาคมกีฬายิงปืนหัวหิน",                                               regionId:"C",  weaponId:"P-0050", qty:3200,   date:"2568-03-14", status:"รอดำเนินการ" },
-  { id:9,  companyId:"2",  company:"บริษัท ณธรรศชาตรี จำกัด",                      buyerGroupId:"9", buyerUnit:"โรงเรียนนายร้อยตำรวจ",                                                regionId:"C",  weaponId:"P-0033", qty:8500,   date:"2568-04-25", status:"รอดำเนินการ" },
-  { id:10, companyId:"2",  company:"บริษัท ณธรรศชาตรี จำกัด",                      buyerGroupId:"0", buyerUnit:"-",                                                                     regionId:"E",  weaponId:"P-0031", qty:1800,   date:"2568-06-08", status:"อนุมัติ" },
-  { id:11, companyId:"3",  company:"บริษัท รอยัล แอมมูนิชั่น จำกัด",               buyerGroupId:"1", buyerUnit:"มณฑลทหารบกที่ 46 ค่ายอิงคยุทธบริหาร",                               regionId:"NE", weaponId:"P-0035", qty:180000, date:"2568-01-25", status:"อนุมัติ" },
-  { id:12, companyId:"3",  company:"บริษัท รอยัล แอมมูนิชั่น จำกัด",               buyerGroupId:"2", buyerUnit:"กองทะเบียนประวัติอาชญากร สำนักงานพิสูจน์หลักฐานตำรวจ สำนักงานตำรวจแห่งชาติ", regionId:"C", weaponId:"P-0034", qty:85000, date:"2568-02-10", status:"อนุมัติ" },
-  { id:13, companyId:"3",  company:"บริษัท รอยัล แอมมูนิชั่น จำกัด",               buyerGroupId:"3", buyerUnit:"สมาคมกีฬายิงปืนหัวหิน",                                               regionId:"S",  weaponId:"P-0036", qty:7200,   date:"2568-03-30", status:"อนุมัติ" },
-  { id:14, companyId:"3",  company:"บริษัท รอยัล แอมมูนิชั่น จำกัด",               buyerGroupId:"9", buyerUnit:"กรมราชทัณฑ์",                                                          regionId:"W",  weaponId:"P-0028", qty:4500,   date:"2568-05-05", status:"อนุมัติ" },
-  { id:15, companyId:"3",  company:"บริษัท รอยัล แอมมูนิชั่น จำกัด",               buyerGroupId:"0", buyerUnit:"-",                                                                     regionId:"N",  weaponId:"P-0027", qty:1200,   date:"2568-07-11", status:"กำลังดำเนินการ" },
-  { id:16, companyId:"4",  company:"บริษัท พี.วี.เอ็กซโพลซิฟ (ไทยแลนด์) จำกัด", buyerGroupId:"1", buyerUnit:"กองพลทหารปืนใหญ่ ค่ายพิลูลสงคราม",                                   regionId:"C",  weaponId:"P-0090", qty:15000,  date:"2568-02-01", status:"อนุมัติ" },
-  { id:17, companyId:"4",  company:"บริษัท พี.วี.เอ็กซโพลซิฟ (ไทยแลนด์) จำกัด", buyerGroupId:"2", buyerUnit:"ตำรวจภูธรจังหวัดน่าน",                                                 regionId:"S",  weaponId:"P-0160", qty:6000,   date:"2568-03-10", status:"อนุมัติ" },
-  { id:18, companyId:"4",  company:"บริษัท พี.วี.เอ็กซโพลซิฟ (ไทยแลนด์) จำกัด", buyerGroupId:"3", buyerUnit:"สมาคมยิงปืนเขาเขียวนครสวรรค์",                                        regionId:"W",  weaponId:"P-0160", qty:12000,  date:"2568-04-01", status:"อนุมัติ" },
-  { id:19, companyId:"4",  company:"บริษัท พี.วี.เอ็กซโพลซิฟ (ไทยแลนด์) จำกัด", buyerGroupId:"9", buyerUnit:"สำนักงานศาลยุติธรรม ศูนย์รักษาความปลอดภัย",                          regionId:"N",  weaponId:"P-0090", qty:1200,   date:"2568-07-15", status:"อนุมัติ" },
-  { id:20, companyId:"4",  company:"บริษัท พี.วี.เอ็กซโพลซิฟ (ไทยแลนด์) จำกัด", buyerGroupId:"0", buyerUnit:"-",                                                                     regionId:"NE", weaponId:"P-0161", qty:900,    date:"2568-08-20", status:"รอดำเนินการ" },
-  { id:21, companyId:"5",  company:"บริษัท อัสพรรณ เอ็กซ์โพลซีฟ จำกัด",          buyerGroupId:"1", buyerUnit:"กรมการทหารสื่อสารที่ 1 ค่ายกำแพงเพชรอัครโยธิน",                     regionId:"S",  weaponId:"P-0170", qty:22000,  date:"2568-01-30", status:"อนุมัติ" },
-  { id:22, companyId:"5",  company:"บริษัท อัสพรรณ เอ็กซ์โพลซีฟ จำกัด",          buyerGroupId:"2", buyerUnit:"ศูนย์ฝึกอบรมตำรวจภูธรภาค 9",                                         regionId:"C",  weaponId:"P-0171", qty:8000,   date:"2568-03-05", status:"อนุมัติ" },
-  { id:23, companyId:"5",  company:"บริษัท อัสพรรณ เอ็กซ์โพลซีฟ จำกัด",          buyerGroupId:"3", buyerUnit:"สมาคมยิงปืนเขาเขียวนครสวรรค์",                                        regionId:"E",  weaponId:"P-0160", qty:4500,   date:"2568-04-18", status:"กำลังดำเนินการ" },
-  { id:24, companyId:"5",  company:"บริษัท อัสพรรณ เอ็กซ์โพลซีฟ จำกัด",          buyerGroupId:"9", buyerUnit:"กรมสอบสวนคดีพิเศษ",                                                    regionId:"N",  weaponId:"P-0161", qty:2800,   date:"2568-06-22", status:"อนุมัติ" },
-  { id:25, companyId:"5",  company:"บริษัท อัสพรรณ เอ็กซ์โพลซีฟ จำกัด",          buyerGroupId:"0", buyerUnit:"-",                                                                     regionId:"S",  weaponId:"P-0161", qty:3200,   date:"2568-05-02", status:"อนุมัติ" },
-  { id:26, companyId:"6",  company:"บริษัท บุลเล็ท มาสเตอร์ จำกัด",               buyerGroupId:"1", buyerUnit:"มณฑลทหารบกที่ 15 ค่ายรามราชนิเวศน์",                                 regionId:"NE", weaponId:"P-0035", qty:320000, date:"2568-01-08", status:"อนุมัติ" },
-  { id:27, companyId:"6",  company:"บริษัท บุลเล็ท มาสเตอร์ จำกัด",               buyerGroupId:"2", buyerUnit:"ตำรวจภูธรจังหวัดเชียงราย",                                            regionId:"C",  weaponId:"P-0034", qty:75000,  date:"2568-02-28", status:"กำลังดำเนินการ" },
-  { id:28, companyId:"6",  company:"บริษัท บุลเล็ท มาสเตอร์ จำกัด",               buyerGroupId:"3", buyerUnit:"สมาคมกีฬายิงปืนหัวหิน",                                               regionId:"N",  weaponId:"P-0036", qty:9500,   date:"2568-04-10", status:"อนุมัติ" },
-  { id:29, companyId:"6",  company:"บริษัท บุลเล็ท มาสเตอร์ จำกัด",               buyerGroupId:"9", buyerUnit:"กองบัญชาการตำรวจปราบปรามยาเสพติด สำนักงานตำรวจแห่งชาติ",            regionId:"W",  weaponId:"P-0034", qty:5200,   date:"2568-06-14", status:"อนุมัติ" },
-  { id:30, companyId:"6",  company:"บริษัท บุลเล็ท มาสเตอร์ จำกัด",               buyerGroupId:"0", buyerUnit:"-",                                                                     regionId:"S",  weaponId:"P-0035", qty:2400,   date:"2568-08-01", status:"อนุมัติ" },
-  { id:31, companyId:"7",  company:"บริษัท ใช้ เอ็กซ์โพลซีฟส์ จำกัด",            buyerGroupId:"1", buyerUnit:"กองพลทหารม้าที่ 2 รักษาพระองค์",                                     regionId:"S",  weaponId:"P-0036", qty:95000,  date:"2568-02-05", status:"อนุมัติ" },
-  { id:32, companyId:"7",  company:"บริษัท ใช้ เอ็กซ์โพลซีฟส์ จำกัด",            buyerGroupId:"2", buyerUnit:"ตำรวจภูธรจังหวัดชัยภูมิ ภายในศูนย์ราชการ",                          regionId:"E",  weaponId:"P-0035", qty:38000,  date:"2568-03-12", status:"อนุมัติ" },
-  { id:33, companyId:"7",  company:"บริษัท ใช้ เอ็กซ์โพลซีฟส์ จำกัด",            buyerGroupId:"3", buyerUnit:"สมาคมยิงปืนเขาเขียวนครสวรรค์",                                        regionId:"C",  weaponId:"P-0034", qty:6800,   date:"2568-05-20", status:"กำลังดำเนินการ" },
-  { id:34, companyId:"7",  company:"บริษัท ใช้ เอ็กซ์โพลซีฟส์ จำกัด",            buyerGroupId:"9", buyerUnit:"ศูนย์รักษาความปลอดภัย กองบัญชาการกองทัพไทย",                        regionId:"NE", weaponId:"P-0063", qty:3100,   date:"2568-07-08", status:"อนุมัติ" },
-  { id:35, companyId:"7",  company:"บริษัท ใช้ เอ็กซ์โพลซีฟส์ จำกัด",            buyerGroupId:"0", buyerUnit:"-",                                                                     regionId:"N",  weaponId:"P-0033", qty:1500,   date:"2568-08-15", status:"อนุมัติ" },
-  { id:36, companyId:"8",  company:"บริษัท ไทยอามส์ จำกัด",                        buyerGroupId:"1", buyerUnit:"กรมสรรพาวุธทหารบก",                                                   regionId:"S",  weaponId:"P-0035", qty:410000, date:"2568-01-15", status:"อนุมัติ" },
-  { id:37, companyId:"8",  company:"บริษัท ไทยอามส์ จำกัด",                        buyerGroupId:"2", buyerUnit:"กองบังคับการตำรวจนครบาล 9",                                          regionId:"C",  weaponId:"P-0034", qty:92000,  date:"2568-02-20", status:"อนุมัติ" },
-  { id:38, companyId:"8",  company:"บริษัท ไทยอามส์ จำกัด",                        buyerGroupId:"3", buyerUnit:"สมาคมกีฬายิงปืนหัวหิน",                                               regionId:"N",  weaponId:"P-0036", qty:14000,  date:"2568-03-25", status:"อนุมัติ" },
-  { id:39, companyId:"8",  company:"บริษัท ไทยอามส์ จำกัด",                        buyerGroupId:"9", buyerUnit:"กรมการสารวัตรทหารบก",                                                 regionId:"NE", weaponId:"P-0060", qty:7500,   date:"2568-05-18", status:"อนุมัติ" },
-  { id:40, companyId:"8",  company:"บริษัท ไทยอามส์ จำกัด",                        buyerGroupId:"0", buyerUnit:"-",                                                                     regionId:"E",  weaponId:"P-0034", qty:3800,   date:"2568-07-22", status:"กำลังดำเนินการ" },
-  { id:41, companyId:"14", company:"บริษัท สยาม แอมมูนิชั่น จำกัด",               buyerGroupId:"1", buyerUnit:"มณฑลทหารบกที่ 39 ค่ายสมเด็จพระนเรศวรมหาราช",                       regionId:"C",  weaponId:"P-0035", qty:125000, date:"2568-01-22", status:"อนุมัติ" },
-  { id:42, companyId:"14", company:"บริษัท สยาม แอมมูนิชั่น จำกัด",               buyerGroupId:"2", buyerUnit:"กองบัญชาการตำรวจนครบาล สำนักงานตำรวจแห่งชาติ",                     regionId:"E",  weaponId:"P-0034", qty:65000,  date:"2568-03-18", status:"กำลังดำเนินการ" },
-  { id:43, companyId:"14", company:"บริษัท สยาม แอมมูนิชั่น จำกัด",               buyerGroupId:"3", buyerUnit:"สมาคมยิงปืนเขาเขียวนครสวรรค์",                                        regionId:"W",  weaponId:"P-0036", qty:8200,   date:"2568-05-08", status:"อนุมัติ" },
-  { id:44, companyId:"14", company:"บริษัท สยาม แอมมูนิชั่น จำกัด",               buyerGroupId:"9", buyerUnit:"วิทยาลัยการตำรวจ กองบัญชาการศึกษา",                                  regionId:"S",  weaponId:"P-0034", qty:4100,   date:"2568-07-02", status:"อนุมัติ" },
-  { id:45, companyId:"14", company:"บริษัท สยาม แอมมูนิชั่น จำกัด",               buyerGroupId:"0", buyerUnit:"-",                                                                     regionId:"N",  weaponId:"P-0035", qty:1900,   date:"2568-08-10", status:"อนุมัติ" },
-  { id:46, companyId:"15", company:"บริษัท ไทย ทรัพย์นคร จำกัด",                  buyerGroupId:"1", buyerUnit:"กองพันทหารราบที่ 1 กรมทหารราบที่ 23 ค่ายสุรธรรมพิทักษ์",           regionId:"NE", weaponId:"P-0035", qty:88000,  date:"2568-02-08", status:"อนุมัติ" },
-  { id:47, companyId:"15", company:"บริษัท ไทย ทรัพย์นคร จำกัด",                  buyerGroupId:"2", buyerUnit:"ตำรวจภูธรจังหวัดกาญจนบุรี",                                          regionId:"N",  weaponId:"P-0028", qty:22000,  date:"2568-04-14", status:"อนุมัติ" },
-  { id:48, companyId:"15", company:"บริษัท ไทย ทรัพย์นคร จำกัด",                  buyerGroupId:"3", buyerUnit:"สมาคมยิงปืนเขาเขียวนครสวรรค์",                                        regionId:"C",  weaponId:"P-0031", qty:5500,   date:"2568-06-01", status:"อนุมัติ" },
-  { id:49, companyId:"15", company:"บริษัท ไทย ทรัพย์นคร จำกัด",                  buyerGroupId:"9", buyerUnit:"กองบังคับการฝึกอบรมตำรวจกลาง",                                       regionId:"E",  weaponId:"P-0033", qty:2900,   date:"2568-07-18", status:"กำลังดำเนินการ" },
-  { id:50, companyId:"15", company:"บริษัท ไทย ทรัพย์นคร จำกัด",                  buyerGroupId:"0", buyerUnit:"-",                                                                     regionId:"W",  weaponId:"P-0027", qty:1100,   date:"2568-08-25", status:"อนุมัติ" },
-] as RawRow[]).map(enrichRow);
+const toMockRow = (r: MoveRow): MockRow => ({
+  ...r,
+  regionId: r.region,
+  weaponId: r.weaponCode,
+  date: r.dateISO,
+  expireDate: r.expireTH,
+  purchaseDoc: PURCHASE_DOCS[r.id % PURCHASE_DOCS.length],
+});
 
 const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
   "อนุมัติ":         { bg: "#ECFDF5", color: "#059669" },
@@ -492,34 +296,50 @@ export function Page1Overview() {
   const [f_unit,        setUnit]        = useState("");
   const [f_weapons,     setWeapons]     = useState<string[]>([]);
   const [f_region,      setRegion]      = useState("");
-  const [f_buyers,      setBuyers]      = useState<string[]>([]);
-  const [f_buyerUnits,  setBuyerUnits]  = useState<string[]>([]);
-  const [a, setA] = useState({ companies: [] as string[], weaponType: "", unit: "", region: "", buyers: [] as string[], buyerUnits: [] as string[], weapons: [] as string[] });
+  const [f_buyers,         setBuyers]         = useState<string[]>([]);
+  const [f_buyerUnits,     setBuyerUnits]     = useState<string[]>([]);
+  const [f_transportTypes, setTransportTypes] = useState<string[]>([]);
+  const [a, setA] = useState({ dateFrom: "", dateTo: "", companies: [] as string[], weaponType: "", unit: "", region: "", buyers: [] as string[], buyerUnits: [] as string[], weapons: [] as string[], transportTypes: [] as string[] });
   const [searched, setSearched] = useState(false);
   const [tablePage, setTablePage] = useState(1);
   const [tablePageSize, setTablePageSize] = useState(10);
 
-  const handleSearch = () => { setA({ companies: f_companies, weaponType: f_weaponType, unit: f_unit, region: f_region, buyers: f_buyers, buyerUnits: f_buyerUnits, weapons: f_weapons }); setSearched(true); setTablePage(1); };
+  /* โหลดข้อมูลจริง (12,749 แถว) แบบ async จาก public/moveLicense.rows.json */
+  const [MOCK_ROWS, setMockRows] = useState<MockRow[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+  useEffect(() => {
+    let alive = true;
+    loadMoveRows().then((rows) => { if (alive) { setMockRows(rows.map(toMockRow)); setDataLoading(false); } });
+    return () => { alive = false; };
+  }, []);
+
+  const handleSearch = () => { setA({ dateFrom: f_dateFrom, dateTo: f_dateTo, companies: f_companies, weaponType: f_weaponType, unit: f_unit, region: f_region, buyers: f_buyers, buyerUnits: f_buyerUnits, weapons: f_weapons, transportTypes: f_transportTypes }); setSearched(true); setTablePage(1); };
   const handleReset  = () => {
     setDateFrom(""); setDateTo(""); setCompanies([]); setWeaponType(""); setUnit(""); setWeapons([]);
-    setRegion(""); setBuyers([]); setBuyerUnits([]);
-    setA({ companies: [], weaponType: "", unit: "", region: "", buyers: [], buyerUnits: [], weapons: [] });
+    setRegion(""); setBuyers([]); setBuyerUnits([]); setTransportTypes([]);
+    setA({ dateFrom: "", dateTo: "", companies: [], weaponType: "", unit: "", region: "", buyers: [], buyerUnits: [], weapons: [], transportTypes: [] });
     setSearched(false);
   };
 
   /* chart interaction */
   const [activePieIndex, setActivePieIndex] = useState<number | undefined>(undefined);
   const [lockedPieIndex, setLockedPieIndex] = useState<number | undefined>(undefined);
+  const [activeDocIndex, setActiveDocIndex] = useState<number | undefined>(undefined);
+  const [lockedDocIndex, setLockedDocIndex] = useState<number | undefined>(undefined);
   const [activeBarIndex, setActiveBarIndex] = useState<number | undefined>(undefined);
   const [hiddenCompanies, setHiddenCompanies] = useState<Set<string>>(new Set());
   const [hiddenBuyers,    setHiddenBuyers]    = useState<Set<string>>(new Set());
+  const [hiddenDocs,      setHiddenDocs]      = useState<Set<string>>(new Set());
   const toggleCompany = (id: string) => setHiddenCompanies((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const toggleBuyer   = (id: string) => setHiddenBuyers((s)    => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleDoc     = (id: string) => setHiddenDocs((s)      => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   const barChartRef = useRef<HTMLDivElement>(null);
   const pieChartRef = useRef<HTMLDivElement>(null);
+  const docChartRef = useRef<HTMLDivElement>(null);
   const [copiedBar, setCopiedBar] = useState(false);
   const [copiedPie, setCopiedPie] = useState(false);
+  const [copiedDoc, setCopiedDoc] = useState(false);
 
   const captureChart = async (ref: React.RefObject<HTMLDivElement>, fn: (el: HTMLDivElement) => Promise<void>) => {
     const el = ref.current;
@@ -558,32 +378,28 @@ export function Page1Overview() {
   /* filtered rows */
   const rows = !searched ? [] : MOCK_ROWS.filter((r) => {
     if (a.companies.length && !a.companies.includes(r.companyId)) return false;
+    if (a.transportTypes.length && !a.transportTypes.includes(r.transportType)) return false;
     if (a.region   && r.regionId !== a.region)                    return false;
     if (a.buyers.length    && !a.buyers.includes(r.buyerGroupId)) return false;
     if (a.buyerUnits.length && !a.buyerUnits.includes(r.buyerUnit)) return false;
+    if (a.unit && r.unit !== a.unit) return false;
+    if (a.dateFrom && r.dateISO && r.dateISO < a.dateFrom) return false;
+    if (a.dateTo   && r.dateISO && r.dateISO > a.dateTo)   return false;
     if (a.weapons.length) {
       if (!a.weapons.includes(r.weaponId)) return false;
-    } else if (a.weaponType) {
-      const fn = WEAPON_TYPE_FILTER[a.weaponType];
-      if (fn) {
-        const weapon = WEAPONS.find((w) => w.id === r.weaponId);
-        if (!weapon || !fn(weapon)) return false;
-      }
+    } else if (a.weaponType && r.weaponCategory !== a.weaponType) {
+      return false;
     }
     return true;
   });
 
   const filteredWeaponOptions = f_weaponType
-    ? WEAPONS.filter((w) => WEAPON_TYPE_FILTER[f_weaponType]?.(w) ?? true)
+    ? WEAPONS.filter((w) => w.category === f_weaponType)
     : [];
 
-  const buyerUnitOptions = [
-    ...new Set(
-      MOCK_ROWS
-        .filter((r) => f_buyers.length === 0 || f_buyers.includes(r.buyerGroupId))
-        .map((r) => r.buyerUnit)
-    )
-  ].sort((a, b) => a.localeCompare(b, "th")).map((u) => ({ id: u, label: u }));
+  const buyerUnitOptions = BUYER_UNIT_OPTIONS
+    .filter((u) => f_buyers.length === 0 || f_buyers.includes(u.group))
+    .map((u) => ({ id: u.name, label: u.name }));
 
   const totalQty = rows.reduce((s, r) => s + r.qty, 0);
 
@@ -602,7 +418,7 @@ export function Page1Overview() {
 
   const exportRawExcel = () => {
     const headers = [
-      "เลขที่หนังสือ","วันที่อนุญาต","วันที่หมดอายุ","ประเภทขนย้าย","ผู้ประกอบการ",
+      "เลขที่หนังสือ","วันที่อนุญาต","วันที่หมดอายุ","เอกสารการซื้อ","ประเภทขนย้าย","ผู้ประกอบการ",
       "กลุ่มหน่วยผู้ซื้อ","หน่วยผู้ซื้อ",
       "สถานที่ต้นทาง","บ้านเลขที่สถานที่ต้นทาง","อาคารสถานที่ต้นทาง","หมู่ที่สถานที่ต้นทาง",
       "ซอยสถานที่ต้นทาง","ถนนสถานที่ต้นทาง","ตำบลสถานที่ต้นทาง","อำเภอสถานที่ต้นทาง",
@@ -613,14 +429,14 @@ export function Page1Overview() {
       "รหัสอาวุธ","ชื่ออาวุธ","จำนวน","หน่วยนับ",
     ];
     const dataRows = rows.map((r) => [
-      r.docNo, formatThaiDate(r.date), r.expireDate, r.transportType, r.company,
-      BUYER_GROUPS.find((b) => b.id === r.buyerGroupId)?.label ?? "", r.buyerUnit,
-      r.company, r.srcBaan, r.srcAkhan, r.srcMoo, r.srcSoi, r.srcRoad, r.srcTambon, r.srcAmphoe, r.srcProvince, r.srcZip,
-      r.buyerUnit, r.dstBaan, r.dstAkhan, r.dstMoo, r.dstSoi, r.dstRoad, r.dstTambon, r.dstAmphoe, r.dstProvince, r.dstZip,
-      r.weaponCode, r.weaponName, r.qty, a.unit || "-",
+      r.docNo, r.dateTH, r.expireTH, r.purchaseDoc, r.transportType, r.company,
+      r.buyerGroup, r.buyerUnit,
+      r.srcPlace, r.srcBaan, r.srcAkhan, r.srcMoo, r.srcSoi, r.srcRoad, r.srcTambon, r.srcAmphoe, r.srcProvince, r.srcZip,
+      r.dstPlace, r.dstBaan, r.dstAkhan, r.dstMoo, r.dstSoi, r.dstRoad, r.dstTambon, r.dstAmphoe, r.dstProvince, r.dstZip,
+      r.weaponCode, r.weaponName, r.qty, r.unit || "-",
     ]);
     const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
-    ws["!cols"] = headers.map((_, i) => ({ wch: [18,14,14,24,40,20,60,40,10,10,6,14,20,14,16,20,8,60,10,10,6,14,20,14,16,20,8,12,40,10,8][i] ?? 12 }));
+    ws["!cols"] = headers.map((_, i) => ({ wch: [18,14,14,18,24,40,20,60,40,10,10,6,14,20,14,16,20,8,60,10,10,6,14,20,14,16,20,8,12,40,10,8][i] ?? 12 }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "ข้อมูลดิบ");
     XLSX.writeFile(wb, "ข้อมูลดิบยอดอนุญาตให้ขายขนย้ายอาวุธ.xlsx");
@@ -630,10 +446,10 @@ export function Page1Overview() {
     const exportData = rows.map((r, i) => ({
       "#": i + 1,
       "ผู้ประกอบการ": r.company,
-      "กลุ่มหน่วยผู้ซื้อ": BUYER_GROUPS.find((b) => b.id === r.buyerGroupId)?.label ?? "",
-      "อาวุธ": WEAPONS.find((w) => w.id === r.weaponId)?.label ?? r.weaponId,
+      "กลุ่มหน่วยผู้ซื้อ": r.buyerGroup,
+      "อาวุธ": r.weaponName,
       "จำนวน": r.qty,
-      "หน่วยนับ": a.unit,
+      "หน่วยนับ": r.unit,
     }));
     const ws = XLSX.utils.json_to_sheet(exportData);
     ws["!cols"] = [{ wch: 5 }, { wch: 40 }, { wch: 20 }, { wch: 50 }, { wch: 12 }, { wch: 10 }];
@@ -652,7 +468,7 @@ export function Page1Overview() {
     buyerGroupLabel: getBuyerLabel(r.buyerGroupId),
     regionLabel: getRegionLabel(r.regionId),
     weaponLabel: getWeaponLabel(r.weaponId),
-    dateFormatted: formatThaiDate(r.date),
+    dateFormatted: r.dateTH,
   }));
 
   type TableRow = (typeof tableData)[0];
@@ -693,7 +509,7 @@ export function Page1Overview() {
     { title: "หน่วยผู้ซื้อ",    dataIndex: "buyerUnit",     key: "buyerUnit",     width: 220, sorter: (a, b) => a.buyerUnit.localeCompare(b.buyerUnit, "th"), ...getColSearchProps("buyerUnit", "หน่วยผู้ซื้อ") },
     { title: "อาวุธ",           dataIndex: "weaponLabel",   key: "weapon",        width: 200, sorter: (a, b) => a.weaponLabel.localeCompare(b.weaponLabel, "th"), ...getColSearchProps("weaponLabel", "อาวุธ") },
     { title: "จำนวน",           dataIndex: "qty",           key: "qty",           width: 120, align: "right" as const, sorter: (a, b) => a.qty - b.qty, render: (v: number) => <span style={{ color: PRIMARY, fontWeight: 600 }}>{v.toLocaleString()}</span> },
-    { title: "หน่วยนับ",        key: "unit",                                       width: 90,  align: "center" as const, render: () => <span style={{ color: "#374151" }}>{a.unit || "-"}</span> },
+    { title: "หน่วยนับ",        dataIndex: "unit",          key: "unit",          width: 90,  align: "center" as const, render: (v: string) => <span style={{ color: "#374151" }}>{v || "-"}</span> },
   ];
 
   const antTableProps: TableProps<TableRow> = {
@@ -722,6 +538,14 @@ export function Page1Overview() {
       value: hiddenBuyers.has(bg.id) ? 0 : rows.filter((r) => r.buyerGroupId === bg.id).reduce((s, r) => s + r.qty, 0),
       color: PIE_COLORS[i % PIE_COLORS.length],
     }));
+
+  /* pie chart — purchase document type */
+  const activeDocs = PURCHASE_DOCS.filter((d) => rows.some((r) => r.purchaseDoc === d));
+  const docPieData = activeDocs.map((d, i) => ({
+    id: d, name: d,
+    value: hiddenDocs.has(d) ? 0 : rows.filter((r) => r.purchaseDoc === d).reduce((s, r) => s + r.qty, 0),
+    color: PIE_COLORS[i % PIE_COLORS.length],
+  }));
 
   /* active pie shape */
   const renderActiveShape = (props: Record<string, number & string>) => {
@@ -753,8 +577,8 @@ export function Page1Overview() {
       <div style={{ background: "#fff", borderRadius: 16, padding: 24, boxShadow: "0 1px 3px rgba(15,23,42,0.08)", marginBottom: 16 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "#0E1119", marginBottom: 16 }}>ค้นหาข้อมูล</div>
 
-        {/* Row 1: วันที่อนุญาต เริ่มเริ่ม 1/4 | วันที่อนุญาต เริ่มสิ้นสุด 1/4 | ผู้ประกอบการ 2/4 */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: 12, marginBottom: 12 }}>
+        {/* Row 1: วันที่อนุญาต เริ่ม | วันที่อนุญาต สิ้นสุด | ประเภทขนย้าย | ผู้ประกอบการ */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
           <div>
             <label style={LBL}>วันที่อนุญาต เริ่ม</label>
             <ThaiDatePicker value={f_dateFrom} onChange={setDateFrom} />
@@ -764,6 +588,12 @@ export function Page1Overview() {
             <ThaiDatePicker value={f_dateTo} onChange={setDateTo} />
           </div>
           <div>
+            <label style={LBL}>ประเภทขนย้าย</label>
+            <MultiSelect placeholder="ทั้งหมด"
+              options={TRANSPORT_TYPES.map((t) => ({ id: t, label: t }))}
+              selected={f_transportTypes} onChange={setTransportTypes} />
+          </div>
+          <div>
             <label style={LBL}>ผู้ประกอบการ</label>
             <MultiSelect placeholder="ทั้งหมด"
               options={COMPANIES.map((c) => ({ id: c.id, label: c.name }))}
@@ -771,7 +601,7 @@ export function Page1Overview() {
           </div>
         </div>
 
-        {/* Row 2: ภาค 1/4 | กลุ่มหน่วยผู้ซื้อ 1/4 | หน่วยผู้ซื้อ 2/4 */}
+        {/* Row 2: ภาค | กลุ่มหน่วยผู้ซื้อ | หน่วยผู้ซื้อ */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: 12, marginBottom: 12 }}>
           <div>
             <label style={LBL}>ภาค</label>
@@ -795,20 +625,12 @@ export function Page1Overview() {
           <div>
             <label style={LBL}>ประเภทอาวุธ <span style={{ color: "#EF4444" }}>*</span></label>
             <SelectField value={f_weaponType} onChange={(v) => { setWeaponType(v); setWeapons([]); if (v === "กระสุน") setUnit("นัด"); }} placeholder="เลือกประเภท"
-              options={[{ value: "กระสุน", label: "กระสุน" }, { value: "ระเบิด", label: "ระเบิด" }, { value: "อาวุธปืน", label: "อาวุธปืน" }]} />
+              options={WEAPON_CATEGORY_OPTIONS.map((c) => ({ value: c, label: c }))} />
           </div>
           <div>
             <label style={LBL}>หน่วยนับ <span style={{ color: "#EF4444" }}>*</span></label>
             <SelectField value={f_unit} onChange={(v) => { setUnit(v); setWeapons([]); }} placeholder="เลือกหน่วยนับ"
-              options={[
-                { value: "อัน", label: "อัน" }, { value: "กระบอก", label: "กระบอก" }, { value: "เครื่อง", label: "เครื่อง" },
-                { value: "ชิ้น", label: "ชิ้น" }, { value: "ชุด", label: "ชุด" }, { value: "กรัม", label: "กรัม" },
-                { value: "กิโลกรัม", label: "กิโลกรัม" }, { value: "หม้อ", label: "หม้อ" }, { value: "หัว", label: "หัว" },
-                { value: "ปลอก", label: "ปลอก" }, { value: "นัด", label: "นัด" }, { value: "เมตร", label: "เมตร" },
-                { value: "แท่ง", label: "แท่ง" }, { value: "ดอก", label: "ดอก" }, { value: "ตลับ", label: "ตลับ" },
-                { value: "ปอนด์", label: "ปอนด์" }, { value: "หลอด", label: "หลอด" }, { value: "แผ่น", label: "แผ่น" },
-                { value: "ใบ", label: "ใบ" },
-              ]} />
+              options={UNIT_OPTIONS.map((u) => ({ value: u, label: u }))} />
           </div>
           <div>
             <label style={LBL}>อาวุธ</label>
@@ -825,99 +647,91 @@ export function Page1Overview() {
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#fff"; }}>
             รีเซ็ต
           </button>
-          <button onClick={handleSearch} disabled={!f_weaponType || !f_unit}
-            style={{ width: 40, height: 40, borderRadius: 8, background: (!f_weaponType || !f_unit) ? "#D1D5DB" : PRIMARY, border: "none", cursor: (!f_weaponType || !f_unit) ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.15s" }}
-            onMouseEnter={(e) => { if (f_weaponType && f_unit) (e.currentTarget as HTMLButtonElement).style.background = "#515ed8"; }}
-            onMouseLeave={(e) => { if (f_weaponType && f_unit) (e.currentTarget as HTMLButtonElement).style.background = PRIMARY; }}>
+          <button onClick={handleSearch} disabled={!f_weaponType || !f_unit || dataLoading}
+            title={dataLoading ? "กำลังโหลดข้อมูล..." : ""}
+            style={{ width: 40, height: 40, borderRadius: 8, background: (!f_weaponType || !f_unit || dataLoading) ? "#D1D5DB" : PRIMARY, border: "none", cursor: (!f_weaponType || !f_unit || dataLoading) ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.15s" }}
+            onMouseEnter={(e) => { if (f_weaponType && f_unit && !dataLoading) (e.currentTarget as HTMLButtonElement).style.background = "#515ed8"; }}
+            onMouseLeave={(e) => { if (f_weaponType && f_unit && !dataLoading) (e.currentTarget as HTMLButtonElement).style.background = PRIMARY; }}>
             <Search size={17} color="#fff" />
           </button>
         </div>
       </div>
 
-      {/* Charts */}
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, marginBottom: 16 }}>
+      {/* Charts row 1 — two pies */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
 
-        {/* Bar chart */}
-        <div ref={barChartRef} style={{ background: "#fff", borderRadius: 16, padding: 20, boxShadow: "0 1px 3px rgba(15,23,42,0.08)" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        {/* Doc pie chart */}
+        <div ref={docChartRef} style={{ background: "#fff", borderRadius: 16, padding: 20, boxShadow: "0 1px 3px rgba(15,23,42,0.08)", display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <div>
               <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119", marginBottom: 2 }}>{searched && a.weaponType ? `ยอดอนุญาตให้การขาย/ขนย้าย${a.weaponType}` : "ยอดอนุญาตให้การขาย/ขนย้าย"}</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>แยกตามผู้ประกอบการ{searched && a.unit ? ` (${a.unit})` : ""}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>แยกตามเอกสารการซื้อ{searched && a.unit ? ` (${a.unit})` : ""}</div>
             </div>
             <div data-capture-hide style={{ display: "flex", gap: 6 }}>
-              <button onClick={() => copyPNG(barChartRef, setCopiedBar)}
-                style={{ display: "flex", alignItems: "center", gap: 4, height: 30, padding: "0 10px", fontSize: 12, border: "1px solid #E5E7EB", borderRadius: 7, background: "#fff", color: copiedBar ? "#059669" : "#6B7280", cursor: "pointer" }}>
-                {copiedBar ? <Check size={13} /> : <Copy size={13} />}{copiedBar ? "คัดลอกแล้ว" : "Copy"}
+              <button onClick={() => copyPNG(docChartRef, setCopiedDoc)}
+                style={{ display: "flex", alignItems: "center", gap: 4, height: 28, padding: "0 9px", fontSize: 11, border: "1px solid #E5E7EB", borderRadius: 7, background: "#fff", color: copiedDoc ? "#059669" : "#6B7280", cursor: "pointer" }}>
+                {copiedDoc ? <Check size={12} /> : <Copy size={12} />}{copiedDoc ? "คัดลอกแล้ว" : "Copy"}
               </button>
-              <button onClick={() => downloadPNG(barChartRef, "chart-company.png")}
-                style={{ display: "flex", alignItems: "center", gap: 4, height: 30, padding: "0 10px", fontSize: 12, border: "1px solid #E5E7EB", borderRadius: 7, background: "#fff", color: "#6B7280", cursor: "pointer" }}>
-                <Download size={13} />PNG
+              <button onClick={() => downloadPNG(docChartRef, "chart-purchase-doc.png")}
+                style={{ display: "flex", alignItems: "center", gap: 4, height: 28, padding: "0 9px", fontSize: 11, border: "1px solid #E5E7EB", borderRadius: 7, background: "#fff", color: "#6B7280", cursor: "pointer" }}>
+                <Download size={12} />PNG
               </button>
             </div>
           </div>
-          {(() => {
-            const CHAR_W = 7.2;
-            const LINE_H = 15;
-            const MAX_W = 320;
-            const yAxisW = Math.min(MAX_W, Math.max(...(chartData.map((d) => d.name.length * CHAR_W)), 80));
-            const charsPerLine = Math.floor(yAxisW / CHAR_W);
-            const CustomYTick = ({ x, y, payload }: { x: number; y: number; payload: { value: string } }) => {
-              const words = payload.value.split(" ");
-              const lines: string[] = [];
-              let cur = "";
-              words.forEach((w) => { if ((cur + (cur ? " " : "") + w).length <= charsPerLine) { cur += (cur ? " " : "") + w; } else { if (cur) lines.push(cur); cur = w; } });
-              if (cur) lines.push(cur);
-              const offsetY = -((lines.length - 1) * LINE_H) / 2;
-              return (
-                <g transform={`translate(${x},${y})`}>
-                  {lines.map((l, i) => (
-                    <text key={i} x={-6} y={offsetY + i * LINE_H} textAnchor="end" fill="#111827" fontSize={11} dominantBaseline="middle">{l}</text>
-                  ))}
-                </g>
-              );
-            };
-            return (
-          <ResponsiveContainer width="100%" height={Math.max(chartData.length * 52, 100)}>
-            <BarChart data={chartData} layout="vertical" margin={{ left: 10, right: 70, top: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#D1D5DB" />
-              <XAxis type="number" tick={{ fontSize: 11, fill: "#4B5563" }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : String(v)} axisLine={false} tickLine={false} />
-              <YAxis type="category" dataKey="name" width={yAxisW} tick={<CustomYTick x={0} y={0} payload={{ value: "" }} />} axisLine={false} tickLine={false} />
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={docPieData} margin={{ top: 22, right: 10, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#4B5563" }} axisLine={false} tickLine={false} interval={0} />
+              <YAxis tick={{ fontSize: 11, fill: "#4B5563" }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : String(v)} axisLine={false} tickLine={false} />
               <Tooltip content={<ChartTooltip />} cursor={{ fill: "#F5F3FF" }} />
-              <Bar dataKey="qty" radius={[0, 6, 6, 0]} maxBarSize={26}
-                label={{ position: "right", fontSize: 11, fill: "#374151", fontWeight: 600, formatter: (v: number) => v.toLocaleString() }}
-                onMouseEnter={(_: unknown, index: number) => setActiveBarIndex(index)}
-                onMouseLeave={() => setActiveBarIndex(undefined)}>
-                {chartData.map((_, i) => (
-                  <Cell key={i} fill={PALETTE[i % PALETTE.length]}
-                    opacity={activeBarIndex === undefined || activeBarIndex === i ? 1 : 0.4} />
+              <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={56}
+                label={{ position: "top", fontSize: 11, fill: "#374151", fontWeight: 600, formatter: (v: number) => v.toLocaleString() }}
+                onMouseEnter={(_: unknown, index: number) => setActiveDocIndex(index)}
+                onMouseLeave={() => setActiveDocIndex(undefined)}>
+                {docPieData.map((d, i) => (
+                  <Cell key={i} fill={d.color} opacity={activeDocIndex === undefined || activeDocIndex === i ? 1 : 0.4} />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
-            );
-          })()}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
+            {docPieData.map((d) => {
+              const pct = totalQty > 0 ? ((d.value / totalQty) * 100).toFixed(1) : "0.0";
+              return (
+                <div key={d.name} style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 4px" }}>
+                  <span style={{ width: 10, height: 10, borderRadius: 3, background: d.color, flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, color: "#374151", flex: 1 }}>{d.name}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "#0E1119" }}>{d.value.toLocaleString()}</span>
+                  <span style={{ fontSize: 11, color: "#8B8E95", width: 44, textAlign: "right" }}>{pct}%</span>
+                </div>
+              );
+            })}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 4px 0", borderTop: "1px solid #F3F4F6", marginTop: 2 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "#0E1119", flex: 1 }}>ยอดรวม</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: PRIMARY }}>{docPieData.reduce((s, d) => s + d.value, 0).toLocaleString()}{a.unit ? ` ${a.unit}` : ""}</span>
+            </div>
+          </div>
           {/* Toggle chips */}
-          <div data-capture-hide style={{ marginTop: 14, borderTop: "1px solid #F3F4F6", paddingTop: 12 }}>
+          <div data-capture-hide style={{ marginTop: 12, borderTop: "1px solid #F3F4F6", paddingTop: 12 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <span style={{ fontSize: 11, color: "#8B8E95", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>แสดง/ซ่อน ผู้ประกอบการ</span>
-              {hiddenCompanies.size > 0 && (
-                <button onClick={() => setHiddenCompanies(new Set())} style={{ fontSize: 11, color: PRIMARY, background: "#EEF2FF", border: "none", borderRadius: 6, padding: "2px 8px", cursor: "pointer" }}>แสดงทั้งหมด</button>
+              <span style={{ fontSize: 11, color: "#8B8E95", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>แสดง/ซ่อน เอกสาร</span>
+              {hiddenDocs.size > 0 && (
+                <button onClick={() => setHiddenDocs(new Set())} style={{ fontSize: 11, color: PRIMARY, background: "#EEF2FF", border: "none", borderRadius: 6, padding: "2px 8px", cursor: "pointer" }}>แสดงทั้งหมด</button>
               )}
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {chartData.map((c, i) => {
-                const hidden = hiddenCompanies.has(c.id);
+              {docPieData.map((d, i) => {
+                const hidden = hiddenDocs.has(d.id);
                 return (
-                  <button key={c.id} onClick={() => toggleCompany(c.id)}
-                    style={{ height: 24, padding: "0 10px", fontSize: 11, borderRadius: 20, border: `1.5px solid ${hidden ? "#E5E7EB" : PALETTE[i % PALETTE.length]}`, background: hidden ? "#F9FAFB" : PALETTE[i % PALETTE.length] + "22", color: hidden ? "#9CA3AF" : PALETTE[i % PALETTE.length], cursor: "pointer", fontWeight: 500, textDecoration: hidden ? "line-through" : "none", transition: "all 0.15s" }}>
-                    {c.name}
+                  <button key={d.id} onClick={() => toggleDoc(d.id)}
+                    style={{ height: 24, padding: "0 10px", fontSize: 11, borderRadius: 20, border: `1.5px solid ${hidden ? "#E5E7EB" : PIE_COLORS[i % PIE_COLORS.length]}`, background: hidden ? "#F9FAFB" : PIE_COLORS[i % PIE_COLORS.length] + "22", color: hidden ? "#9CA3AF" : PIE_COLORS[i % PIE_COLORS.length], cursor: "pointer", fontWeight: 500, textDecoration: hidden ? "line-through" : "none", transition: "all 0.15s" }}>
+                    {d.name}
                   </button>
                 );
               })}
             </div>
           </div>
         </div>
-
         {/* Pie chart */}
         <div ref={pieChartRef} style={{ background: "#fff", borderRadius: 16, padding: 20, boxShadow: "0 1px 3px rgba(15,23,42,0.08)", display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
@@ -964,6 +778,10 @@ export function Page1Overview() {
                 </div>
               );
             })}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 4px 0", borderTop: "1px solid #F3F4F6", marginTop: 2 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "#0E1119", flex: 1 }}>ยอดรวม</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: PRIMARY }}>{buyerPieData.reduce((s, d) => s + d.value, 0).toLocaleString()}{a.unit ? ` ${a.unit}` : ""}</span>
+            </div>
           </div>
           {/* Toggle chips */}
           <div data-capture-hide style={{ marginTop: 12, borderTop: "1px solid #F3F4F6", paddingTop: 12 }}>
@@ -984,6 +802,91 @@ export function Page1Overview() {
                 );
               })}
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Charts row 2 — bar full width */}
+      <div ref={barChartRef} style={{ background: "#fff", borderRadius: 16, padding: 20, boxShadow: "0 1px 3px rgba(15,23,42,0.08)", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119", marginBottom: 2 }}>{searched && a.weaponType ? `ยอดอนุญาตให้การขาย/ขนย้าย${a.weaponType}` : "ยอดอนุญาตให้การขาย/ขนย้าย"}</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>แยกตามผู้ประกอบการ{searched && a.unit ? ` (${a.unit})` : ""}</div>
+          </div>
+          <div data-capture-hide style={{ display: "flex", gap: 6 }}>
+            <button onClick={() => copyPNG(barChartRef, setCopiedBar)}
+              style={{ display: "flex", alignItems: "center", gap: 4, height: 30, padding: "0 10px", fontSize: 12, border: "1px solid #E5E7EB", borderRadius: 7, background: "#fff", color: copiedBar ? "#059669" : "#6B7280", cursor: "pointer" }}>
+              {copiedBar ? <Check size={13} /> : <Copy size={13} />}{copiedBar ? "คัดลอกแล้ว" : "Copy"}
+            </button>
+            <button onClick={() => downloadPNG(barChartRef, "chart-company.png")}
+              style={{ display: "flex", alignItems: "center", gap: 4, height: 30, padding: "0 10px", fontSize: 12, border: "1px solid #E5E7EB", borderRadius: 7, background: "#fff", color: "#6B7280", cursor: "pointer" }}>
+              <Download size={13} />PNG
+            </button>
+          </div>
+        </div>
+        {(() => {
+          const CHAR_W = 7.2;
+          const LINE_H = 15;
+          const MAX_W = 320;
+          const yAxisW = Math.min(MAX_W, Math.max(...(chartData.map((d) => d.name.length * CHAR_W)), 80));
+          const charsPerLine = Math.floor(yAxisW / CHAR_W);
+          const CustomYTick = ({ x, y, payload }: { x: number; y: number; payload: { value: string } }) => {
+            const words = payload.value.split(" ");
+            const lines: string[] = [];
+            let cur = "";
+            words.forEach((w) => { if ((cur + (cur ? " " : "") + w).length <= charsPerLine) { cur += (cur ? " " : "") + w; } else { if (cur) lines.push(cur); cur = w; } });
+            if (cur) lines.push(cur);
+            const offsetY = -((lines.length - 1) * LINE_H) / 2;
+            return (
+              <g transform={`translate(${x},${y})`}>
+                {lines.map((l, i) => (
+                  <text key={i} x={-6} y={offsetY + i * LINE_H} textAnchor="end" fill="#111827" fontSize={11} dominantBaseline="middle">{l}</text>
+                ))}
+              </g>
+            );
+          };
+          return (
+        <ResponsiveContainer width="100%" height={Math.max(chartData.length * 52, 100)}>
+          <BarChart data={chartData} layout="vertical" margin={{ left: 10, right: 70, top: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#D1D5DB" />
+            <XAxis type="number" tick={{ fontSize: 11, fill: "#4B5563" }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : String(v)} axisLine={false} tickLine={false} />
+            <YAxis type="category" dataKey="name" width={yAxisW} tick={<CustomYTick x={0} y={0} payload={{ value: "" }} />} axisLine={false} tickLine={false} />
+            <Tooltip content={<ChartTooltip />} cursor={{ fill: "#F5F3FF" }} />
+            <Bar dataKey="qty" radius={[0, 6, 6, 0]} maxBarSize={26}
+              label={{ position: "right", fontSize: 11, fill: "#374151", fontWeight: 600, formatter: (v: number) => v.toLocaleString() }}
+              onMouseEnter={(_: unknown, index: number) => setActiveBarIndex(index)}
+              onMouseLeave={() => setActiveBarIndex(undefined)}>
+              {chartData.map((_, i) => (
+                <Cell key={i} fill={PALETTE[i % PALETTE.length]}
+                  opacity={activeBarIndex === undefined || activeBarIndex === i ? 1 : 0.4} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+          );
+        })()}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 4px 0", borderTop: "1px solid #F3F4F6", marginTop: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#0E1119", flex: 1 }}>ยอดรวม</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: PRIMARY }}>{chartData.reduce((s, d) => s + d.qty, 0).toLocaleString()}{a.unit ? ` ${a.unit}` : ""}</span>
+        </div>
+        {/* Toggle chips */}
+        <div data-capture-hide style={{ marginTop: 14, borderTop: "1px solid #F3F4F6", paddingTop: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <span style={{ fontSize: 11, color: "#8B8E95", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>แสดง/ซ่อน ผู้ประกอบการ</span>
+            {hiddenCompanies.size > 0 && (
+              <button onClick={() => setHiddenCompanies(new Set())} style={{ fontSize: 11, color: PRIMARY, background: "#EEF2FF", border: "none", borderRadius: 6, padding: "2px 8px", cursor: "pointer" }}>แสดงทั้งหมด</button>
+            )}
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {chartData.map((c, i) => {
+              const hidden = hiddenCompanies.has(c.id);
+              return (
+                <button key={c.id} onClick={() => toggleCompany(c.id)}
+                  style={{ height: 24, padding: "0 10px", fontSize: 11, borderRadius: 20, border: `1.5px solid ${hidden ? "#E5E7EB" : PALETTE[i % PALETTE.length]}`, background: hidden ? "#F9FAFB" : PALETTE[i % PALETTE.length] + "22", color: hidden ? "#9CA3AF" : PALETTE[i % PALETTE.length], cursor: "pointer", fontWeight: 500, textDecoration: hidden ? "line-through" : "none", transition: "all 0.15s" }}>
+                  {c.name}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
