@@ -444,7 +444,10 @@ export function Page4Recipients() {
       {/* Chart row 1 — grouped horizontal bar (status by company) */}
       <div ref={statusBarRef} style={{ background: "#fff", borderRadius: 16, padding: 20, boxShadow: "0 1px 3px rgba(15,23,42,0.08)", marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>สถานะการขนย้ายตามหนังสืออนุญาตขนย้าย แยกตามผู้ประกอบการ (ฉบับ)</div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119", marginBottom: 2 }}>สถานะการขนย้ายตามหนังสืออนุญาตขนย้าย</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>แยกตามผู้ประกอบการ (ฉบับ)</div>
+          </div>
           <div data-capture-hide style={{ display: "flex", gap: 6 }}>
             {chartBtn(() => copyPNG(statusBarRef, setCopiedA), copiedA, true)}
             {chartBtn(() => downloadPNG(statusBarRef, "chart-status-by-company.png"), false, false)}
@@ -483,7 +486,10 @@ export function Page4Recipients() {
         {/* Bar: total docs by company */}
         <div ref={companyBarRef} style={{ background: "#fff", borderRadius: 16, padding: 20, boxShadow: "0 1px 3px rgba(15,23,42,0.08)", display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>จำนวนหนังสืออนุญาตทั้งหมด แยกตามผู้ประกอบการ (ฉบับ)</div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119", marginBottom: 2 }}>จำนวนหนังสืออนุญาตทั้งหมด</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>แยกตามผู้ประกอบการ (ฉบับ)</div>
+            </div>
             <div data-capture-hide style={{ display: "flex", gap: 6 }}>
               {chartBtn(() => copyPNG(companyBarRef, setCopiedB), copiedB, true)}
               {chartBtn(() => downloadPNG(companyBarRef, "chart-company-total.png"), false, false)}
@@ -519,7 +525,10 @@ export function Page4Recipients() {
         {/* Pie: total docs by status */}
         <div ref={pieRef} style={{ background: "#fff", borderRadius: 16, padding: 20, boxShadow: "0 1px 3px rgba(15,23,42,0.08)", display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>จำนวนหนังสืออนุญาตทั้งหมด แยกตามสถานะการขนย้าย (ฉบับ)</div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119", marginBottom: 2 }}>จำนวนหนังสืออนุญาตทั้งหมด</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>แยกตามสถานะการขนย้าย (ฉบับ)</div>
+            </div>
             <div data-capture-hide style={{ display: "flex", gap: 6 }}>
               {chartBtn(() => copyPNG(pieRef, setCopiedC), copiedC, true)}
               {chartBtn(() => downloadPNG(pieRef, "chart-status-pie.png"), false, false)}
