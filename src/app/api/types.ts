@@ -33,7 +33,10 @@ export interface PermitTypeOption { code: string; name: string; }
 // เมนู 1 และ 2 ใช้ตัวกรองชุดเดียวกัน
 export interface SaleMoveFilter {
   dateFrom: string; dateTo: string;
-  transportTypes: string[]; companies: string[]; region: string;
+  transportTypes: string[];      // ประเภทขนย้าย
+  moveCategories: string[];      // ประเภทการขนย้าย
+  companies: string[];
+  region: string; provinces: string[];   // provinces = จังหวัดปลายทาง (relate กับ region)
   buyers: string[]; buyerUnits: string[];
   weaponCategory: string; unit: string; weapons: string[];
 }
@@ -45,9 +48,11 @@ export type PermitsFilter = MoveStatusFilter;
 
 /* ===== Table rows ===== */
 export interface SaleMoveRow {
-  docNo: string; date: string; expireDate: string; purchaseDoc: string; transportType: string;
+  docNo: string; date: string; expireDate: string; purchaseDoc: string;
+  transportType: string; moveCategory: string;
   company: string; buyerGroup: string; buyerUnit: string;
-  weaponCode: string; weaponName: string; qty: number; unit: string;
+  weaponCode: string; weaponName: string;
+  qty: number; actualQty: number; unit: string;   // qty = ที่ได้รับอนุญาต, actualQty = ขนย้ายจริง
 }
 export interface ImportRow {
   docNo: string; date: string; expireDate: string; company: string;

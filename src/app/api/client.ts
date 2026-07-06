@@ -71,7 +71,9 @@ export const api = {
       return get<WeaponOption[]>(`/lookups/weapons${qs ? `?${qs}` : ""}`);
     },
     transportTypes: () => get<string[]>("/lookups/transport-types"),
+    moveCategories: () => get<string[]>("/lookups/move-categories"),
     regions: () => get<string[]>("/lookups/regions"),
+    provinces: (region?: string) => get<string[]>(`/lookups/provinces${region ? `?region=${encodeURIComponent(region)}` : ""}`),
     buyerGroups: () => get<BuyerGroupOption[]>("/lookups/buyer-groups"),
     buyerUnits: (groupIds?: string[]) => get<BuyerUnitOption[]>(`/lookups/buyer-units${groupIds?.length ? `?groupIds=${groupIds.join(",")}` : ""}`),
     permitTypes: () => get<PermitTypeOption[]>("/lookups/permit-types"),
