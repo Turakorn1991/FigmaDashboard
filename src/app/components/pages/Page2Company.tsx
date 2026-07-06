@@ -747,19 +747,21 @@ export function Page2Company() {
 
   const exportRawExcel = () => {
     const headers = [
-      "เลขที่หนังสือ อ.10","วันที่อนุญาต","วันที่หมดอายุ","ประเภทขนย้าย",
-      "ผู้ประกอบการ","กลุ่มหน่วยผู้ซื้อ","หน่วยผู้ซื้อ",
-      "รหัสอาวุธ","ชื่ออาวุธ","จำนวนที่ได้รับอนุญาต","หน่วยนับ",
-      "วันที่ขนย้าย","ครั้งที่ขนย้าย","จำนวนที่ขนย้าย","หน่วยนับ",
+      "เลขที่หนังสือ อ.10","วันที่อนุญาต","วันที่หมดอายุ","ประเภทขนย้าย","ประเภทการขนย้าย","ผู้ประกอบการ",
+      "กลุ่มหน่วยผู้ซื้อ","หน่วยผู้ซื้อ",
+      "สถานที่ปลายทาง","บ้านเลขที่สถานที่ปลายทาง","อาคารสถานที่ปลายทาง","หมู่ที่สถานที่ปลายทาง",
+      "ซอยสถานที่ปลายทาง","ถนนสถานที่ปลายทาง","ตำบลสถานที่ปลายทาง","อำเภอสถานที่ปลายทาง",
+      "จังหวัดสถานที่ปลายทาง","รหัสไปรษณีย์สถานที่ปลายทาง","ภาคสถานที่ปลายทาง",
+      "รหัสอาวุธ","ชื่ออาวุธ","จำนวนที่ได้รับอนุญาต","วันที่ขนย้าย","ครั้งที่ขนย้าย","จำนวนที่ขนย้าย","หน่วยนับ",
     ];
     const dataRows = rows.map((r) => [
-      r.docNo, formatThaiDate(r.date), r.expireDate, r.transportType,
-      r.company, BUYER_GROUPS.find((b) => b.id === r.buyerGroupId)?.label ?? "", r.buyerUnit,
-      r.weaponCode, r.weaponName, r.qty, a.unit || "-",
-      r.transportDate, r.transportRound, r.transportQty, a.unit || "-",
+      r.docNo, formatThaiDate(r.date), r.expireDate, r.transportType, r.moveCategory, r.company,
+      BUYER_GROUPS.find((b) => b.id === r.buyerGroupId)?.label ?? "", r.buyerUnit,
+      r.buyerUnit, r.dstBaan, r.dstAkhan, r.dstMoo, r.dstSoi, r.dstRoad, r.dstTambon, r.dstAmphoe, r.dstProvince, r.dstZip, getRegionLabel(r.regionId),
+      r.weaponCode, r.weaponName, r.qty, r.transportDate, r.transportRound, r.transportQty, a.unit || "-",
     ]);
     const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
-    ws["!cols"] = headers.map((_, i) => ({ wch: [20,14,14,24,40,20,50,12,50,18,10,14,8,14,10][i] ?? 12 }));
+    ws["!cols"] = headers.map((_, i) => ({ wch: [20,14,14,24,26,40,20,50,40,10,10,6,14,20,14,16,20,8,16,12,50,16,14,10,12,10][i] ?? 12 }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "ยอดการขนย้าย");
     XLSX.writeFile(wb, "ยอดการขนย้ายส่งมอบอาวุธหรือวัตถุ.xlsx");
@@ -827,16 +829,19 @@ export function Page2Company() {
       onFilter: (value, record) => record.transportType === value,
       render: (v: TransportType) => <span>{v}</span>,
     },
+    { title: "ประเภทการขนย้าย",     dataIndex: "moveCategory",   key: "moveCategory",   width: 220,
+      filters: MOVE_CATEGORIES.map((t) => ({ text: t, value: t })),
+      onFilter: (value, record) => record.moveCategory === value,
+    },
     { title: "ผู้ประกอบการ",         dataIndex: "company",        key: "company",        width: 220, sorter: (a, b) => a.company.localeCompare(b.company, "th"), ...getColSearchProps("company", "ผู้ประกอบการ") },
     { title: "กลุ่มหน่วยผู้ซื้อ",   dataIndex: "buyerGroupLabel", key: "buyerGroup",    width: 170, sorter: (a, b) => a.buyerGroupLabel.localeCompare(b.buyerGroupLabel, "th"), ...getColSearchProps("buyerGroupLabel", "กลุ่มหน่วยผู้ซื้อ") },
     { title: "หน่วยผู้ซื้อ",         dataIndex: "buyerUnit",      key: "buyerUnit",      width: 220, sorter: (a, b) => a.buyerUnit.localeCompare(b.buyerUnit, "th"), ...getColSearchProps("buyerUnit", "หน่วยผู้ซื้อ") },
     { title: "อาวุธ",               dataIndex: "weaponLabel",    key: "weapon",         width: 200, sorter: (a, b) => a.weaponLabel.localeCompare(b.weaponLabel, "th"), ...getColSearchProps("weaponLabel", "อาวุธ") },
     { title: "จำนวนที่ได้รับอนุญาต", dataIndex: "qty",           key: "qty",            width: 155, align: "right" as const, sorter: (a, b) => a.qty - b.qty, render: (v: number) => <span style={{ color: PRIMARY, fontWeight: 600 }}>{v.toLocaleString()}</span> },
-    { title: "หน่วยนับ",            key: "unit",                                         width: 80,  align: "center" as const, render: () => <span style={{ color: "#374151" }}>{a.unit || "-"}</span> },
     { title: "วันที่ขนย้าย",        dataIndex: "transportDate",  key: "transportDate",  width: 120 },
-    { title: "ครั้งที่ขนย้าย",      dataIndex: "transportRound", key: "transportRound", width: 110, align: "center" as const, render: (v: number) => <span style={{ fontWeight: 500 }}>{v}</span> },
+    { title: "ครั้งที่ขนย้าย",      dataIndex: "transportRound", key: "transportRound", width: 120, align: "center" as const, render: (v: number) => <span style={{ fontWeight: 500 }}>ครั้งที่ {v}</span> },
     { title: "จำนวนที่ขนย้าย",      dataIndex: "transportQty",   key: "transportQty",   width: 130, align: "right" as const, sorter: (a, b) => a.transportQty - b.transportQty, render: (v: number) => <span style={{ color: "#059669", fontWeight: 600 }}>{v.toLocaleString()}</span> },
-    { title: "หน่วยนับ",            key: "unit2",                                        width: 80,  align: "center" as const, render: () => <span style={{ color: "#374151" }}>{a.unit || "-"}</span> },
+    { title: "หน่วยนับ",            key: "unit",                                          width: 90,  align: "center" as const, render: () => <span style={{ color: "#374151" }}>{a.unit || "-"}</span> },
   ];
 
   const antTableProps: TableProps<TableRow> = {
@@ -844,7 +849,7 @@ export function Page2Company() {
     dataSource: tableData,
     size: "middle",
     pagination: { current: tablePage, pageSize: tablePageSize, showSizeChanger: true, pageSizeOptions: ["10","20","50"], showTotal: (total, range) => `${range[0]}-${range[1]} จาก ${total} รายการ`, locale: { items_per_page: "/หน้า", jump_to: "ไปที่", page: "หน้า" }, onChange: (p, ps) => { setTablePage(p); setTablePageSize(ps); } },
-    scroll: { x: 2140 },
+    scroll: { x: 2280 },
   };
 
   /* bar chart — only companies present in filtered rows */
