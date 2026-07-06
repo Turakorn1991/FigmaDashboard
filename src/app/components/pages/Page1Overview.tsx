@@ -764,12 +764,12 @@ export function Page1Overview() {
               selected={f_companies} onChange={setCompanies} showSearch />
           </div>
           <div>
-            <label style={LBL}>ภาค</label>
+            <label style={LBL}>ภาค(ผู้รับปลายทาง)</label>
             <SelectField value={f_region} onChange={(v) => { setRegion(v); setProvinces([]); }} placeholder="ทั้งหมด"
               options={REGIONS.map((r) => ({ value: r.id, label: r.label }))} />
           </div>
           <div>
-            <label style={LBL}>จังหวัด</label>
+            <label style={LBL}>จังหวัด(ผู้รับปลายทาง)</label>
             <MultiSelect placeholder="ทั้งหมด" options={provinceOptions} selected={f_provinces} onChange={setProvinces} showSearch />
           </div>
         </div>
