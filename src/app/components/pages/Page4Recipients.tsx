@@ -4,12 +4,46 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Table, ConfigProvider } from "antd";
 import type { TableColumnsType, TableProps } from "antd";
 import * as XLSX from "xlsx";
-import { loadMoveRows, COMPANY_OPTIONS } from "../../data/moveLicense";
+import {
+  loadMoveRows, COMPANY_OPTIONS, WEAPON_OPTIONS, UNIT_OPTIONS, TRANSPORT_OPTIONS,
+  WEAPON_CATEGORY_OPTIONS, REGION_OPTIONS, BUYER_UNIT_OPTIONS,
+} from "../../data/moveLicense";
 import type { MoveRow } from "../../data/moveLicense";
 
 const PRIMARY = "#6574FF";
 const FF = "'Noto Sans Thai', Inter, sans-serif";
 const PALETTE = ["#6574FF", "#06B6D4", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#0EA5E9", "#14B8A6", "#F97316"];
+
+// ── DDL filter (เหมือนเมนู 1 "ยอดอนุญาตให้ขาย/ขนย้ายอาวุธ") ──
+const COMPANIES = COMPANY_OPTIONS;
+const BUYER_GROUPS = [
+  { id: "1", label: "ทหาร" },
+  { id: "2", label: "สนามยิงปืนทหาร" },
+  { id: "3", label: "ตำรวจ" },
+  { id: "4", label: "สนามยิงปืนตำรวจ" },
+  { id: "5", label: "ส่วนราชการตามกฎกระทรวง" },
+  { id: "6", label: "รัฐวิสาหกิจตามกฎกระทรวง" },
+  { id: "7", label: "ภาคเอกชน (สมาคม บริษัทฯ)" },
+  { id: "9", label: "อื่น ๆ" },
+  { id: "0", label: "ไม่ระบุ" },
+];
+const _BG_ASSIGN = ["1", "2", "3", "4", "5", "6", "7", "9"];
+const _bgHash = (s: string) => { let n = 0; for (const c of s) n = (Math.imul(n, 31) + c.charCodeAt(0)) >>> 0; return n; };
+const buyerUnitGroupId = (unit: string) => (!unit || unit === "-") ? "0" : _BG_ASSIGN[_bgHash(unit) % _BG_ASSIGN.length];
+const REGIONS = REGION_OPTIONS.map((name) => ({ id: name, label: name }));
+const WEAPONS = WEAPON_OPTIONS.map((w) => ({ id: w.id, label: w.name, category: w.category }));
+const TRANSPORT_TYPES = TRANSPORT_OPTIONS;
+const MOVE_CATEGORIES = [
+  "ขนย้ายให้หน่วยงานตามมาตรา 7",
+  "ขายและขนย้ายให้บุคคลอื่นนอกมาตรา 7",
+  "ขนย้ายเพื่อทดสอบ",
+  "ขนย้ายเพื่อจัดแสดง",
+  "ขนย้ายกลับโรงงาน",
+] as const;
+const MOVE_CAT_SALE = "ขายและขนย้ายให้บุคคลอื่นนอกมาตรา 7";
+const MOVE_CAT_NONSALE = ["ขนย้ายให้หน่วยงานตามมาตรา 7", "ขนย้ายเพื่อทดสอบ", "ขนย้ายเพื่อจัดแสดง", "ขนย้ายกลับโรงงาน"];
+const SALE_TRANSPORTS = ["ขายขนย้ายในราชอาณาจักร", "ขายขนย้ายนอกราชอาณาจักร"];
+const moveCategoryOf = (r: MoveRow) => SALE_TRANSPORTS.includes(r.transportType) ? MOVE_CAT_SALE : MOVE_CAT_NONSALE[r.id % MOVE_CAT_NONSALE.length];
 
 /* ─── สถานะการขนย้าย (3 แบบ) ─────────────────────────── */
 const STATUSES = ["รอดำเนินการ", "กำลังขนย้าย", "เสร็จสิ้นแล้ว"] as const;
@@ -29,9 +63,31 @@ const hashStr = (s: string) => { let n = 0; for (const c of s) n = (Math.imul(n,
 const STATUS_POOL: MoveStatus[] = ["รอดำเนินการ", "รอดำเนินการ", "รอดำเนินการ", "รอดำเนินการ", "กำลังขนย้าย", "กำลังขนย้าย", "กำลังขนย้าย", "เสร็จสิ้นแล้ว", "เสร็จสิ้นแล้ว", "เสร็จสิ้นแล้ว"];
 const docStatus = (docNo: string): MoveStatus => STATUS_POOL[hashStr(docNo) % 10];
 
+/* ─── สถานะหนังสืออนุญาต (เทียบวันหมดอายุ อ.10 กับวันนี้) ── */
+const parseThaiDMY = (s: string): Date | null => {
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec((s ?? "").trim());
+  if (!m) return null;
+  const dt = new Date(+m[3] - 543, +m[2] - 1, +m[1]);
+  return isNaN(dt.getTime()) ? null : dt;
+};
+const startOfToday = () => { const t = new Date(); return new Date(t.getFullYear(), t.getMonth(), t.getDate()); };
+const isExpiredTH = (expireTH: string): boolean => {
+  const e = parseThaiDMY(expireTH);
+  if (!e) return false; // ไม่ทราบวันหมดอายุ → ถือว่ายังไม่หมดอายุ
+  return e < startOfToday();
+};
+const LICENSE_STATUS_OPTIONS = [
+  { value: "valid",   label: "ยังไม่หมดอายุ" },
+  { value: "expired", label: "หมดอายุ" },
+];
+const LIC_STATUS_STYLE: Record<"valid" | "expired", { bg: string; color: string; label: string }> = {
+  valid:   { bg: "#ECFDF5", color: "#059669", label: "ยังไม่หมดอายุ" },
+  expired: { bg: "#FEF2F2", color: "#DC2626", label: "หมดอายุ" },
+};
+
 interface DocRow {
   docNo: string; dateISO: string; dateTH: string; expireTH: string;
-  companyId: string; company: string; status: MoveStatus;
+  companyId: string; company: string; status: MoveStatus; expired: boolean;
 }
 // จัดกลุ่ม MoveRow (รายบรรทัด) → หนังสืออนุญาต (ฉบับ) ตาม docNo
 const buildDocs = (rows: MoveRow[]): DocRow[] => {
@@ -41,6 +97,7 @@ const buildDocs = (rows: MoveRow[]): DocRow[] => {
     map.set(r.docNo, {
       docNo: r.docNo, dateISO: r.dateISO, dateTH: r.dateTH, expireTH: r.expireTH,
       companyId: r.companyId, company: r.company, status: docStatus(r.docNo),
+      expired: isExpiredTH(r.expireTH),
     });
   }
   return [...map.values()];
@@ -190,6 +247,164 @@ function MultiSelect({ placeholder, options, selected, onChange, showSearch = fa
   );
 }
 
+/* ─── ThaiDateRangePicker (ช่วงวันที่ ปฏิทิน 2 เดือน) ─── */
+function ThaiDateRangePicker({ from, to, onChange }: { from: string; to: string; onChange: (from: string, to: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [hover, setHover] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+  const init = from ? new Date(from) : new Date();
+  const [viewYear, setViewYear] = useState(init.getFullYear());
+  const [viewMonth, setViewMonth] = useState(init.getMonth());
+
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setHover(""); } };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [open]);
+
+  const fmt = (isoStr: string) => { if (!isoStr) return ""; const d = new Date(isoStr); if (isNaN(d.getTime())) return ""; return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear() + 543}`; };
+  const iso = (y: number, m: number, d: number) => `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+
+  const prevMonth = () => { if (viewMonth === 0) { setViewMonth(11); setViewYear((y) => y - 1); } else setViewMonth((m) => m - 1); };
+  const nextMonth = () => { if (viewMonth === 11) { setViewMonth(0); setViewYear((y) => y + 1); } else setViewMonth((m) => m + 1); };
+
+  const selectDay = (dISO: string) => {
+    if (!from || (from && to)) onChange(dISO, "");
+    else if (dISO < from) onChange(dISO, "");
+    else { onChange(from, dISO); setOpen(false); setHover(""); }
+  };
+
+  const inRange = (dISO: string) => {
+    const end = to || hover;
+    if (!from || !end) return false;
+    const lo = from < end ? from : end, hi = from < end ? end : from;
+    return dISO > lo && dISO < hi;
+  };
+  const isEndpoint = (dISO: string) => dISO === from || dISO === to;
+
+  const navBtn: React.CSSProperties = { border: "none", background: "none", cursor: "pointer", padding: 4, borderRadius: 6, display: "flex", alignItems: "center", color: "#6B7280", fontSize: 15, lineHeight: 1 };
+
+  const renderMonth = (y: number, m: number) => {
+    const firstDay = new Date(y, m, 1).getDay();
+    const days = new Date(y, m + 1, 0).getDate();
+    const cells: (number | null)[] = [...Array(firstDay).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)];
+    while (cells.length % 7 !== 0) cells.push(null);
+    return (
+      <div style={{ minWidth: 244 }}>
+        <div style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "#111827", marginBottom: 10 }}>{THAI_MONTHS[m]} {y + 543}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 4 }}>
+          {THAI_DAYS_SHORT.map((d) => <div key={d} style={{ textAlign: "center", fontSize: 11, fontWeight: 600, color: "#6B7280", padding: "4px 0" }}>{d}</div>)}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+          {cells.map((day, i) => day === null ? <div key={i} /> : (() => {
+            const dISO = iso(y, m, day);
+            const ep = isEndpoint(dISO), rng = inRange(dISO);
+            return (
+              <button key={i} type="button" onClick={() => selectDay(dISO)}
+                onMouseEnter={(e) => { if (from && !to) setHover(dISO); if (!ep && !rng) (e.currentTarget as HTMLButtonElement).style.background = "#F3F4F6"; }}
+                onMouseLeave={(e) => { if (!ep && !rng) (e.currentTarget as HTMLButtonElement).style.background = rng ? "#EEF2FF" : "transparent"; }}
+                style={{ border: "none", cursor: "pointer", borderRadius: 6, padding: "7px 0", fontSize: 13, fontWeight: ep ? 700 : 400,
+                  background: ep ? PRIMARY : rng ? "#EEF2FF" : "transparent", color: ep ? "#fff" : "#374151" }}>{day}</button>
+            );
+          })())}
+        </div>
+      </div>
+    );
+  };
+
+  const rightY = viewMonth === 11 ? viewYear + 1 : viewYear;
+  const rightM = viewMonth === 11 ? 0 : viewMonth + 1;
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button type="button" onClick={() => setOpen((o) => !o)}
+        style={{ ...SEL, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", textAlign: "left", padding: "0 10px 0 12px" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, flex: 1, overflow: "hidden", whiteSpace: "nowrap" }}>
+          <span style={{ color: from ? "#374151" : "#9CA3AF" }}>{fmt(from) || "วันที่อนุญาตเริ่มต้น"}</span>
+          <span style={{ color: "#9CA3AF" }}>→</span>
+          <span style={{ color: to ? "#374151" : "#9CA3AF" }}>{fmt(to) || "วันที่สิ้นสุด"}</span>
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+          {(from || to) && <X size={12} color="#9CA3AF" style={{ cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); onChange("", ""); setHover(""); }} />}
+          <CalendarDays size={15} color="#9CA3AF" />
+        </span>
+      </button>
+      {open && (
+        <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 9999, background: "#fff", border: "1px solid #E5E7EB", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", padding: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <div style={{ display: "flex", gap: 2 }}>
+              <button type="button" onClick={() => setViewYear((y) => y - 1)} style={navBtn}>«</button>
+              <button type="button" onClick={prevMonth} style={navBtn}><ChevronLeft size={16} color="#374151" /></button>
+            </div>
+            <div style={{ display: "flex", gap: 2 }}>
+              <button type="button" onClick={nextMonth} style={navBtn}><ChevronRight size={16} color="#374151" /></button>
+              <button type="button" onClick={() => setViewYear((y) => y + 1)} style={navBtn}>»</button>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 24 }}>
+            {renderMonth(viewYear, viewMonth)}
+            {renderMonth(rightY, rightM)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── SelectField ─────────────────────────────────────── */
+function SelectField({ value, onChange, placeholder, options }: {
+  value: string; onChange: (v: string) => void;
+  placeholder: string; options: { value: string; label: string }[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [kw, setKw] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+  const selectedLabel = options.find((o) => o.value === value)?.label ?? "";
+  const filtered = options.filter((o) => o.label.toLowerCase().includes(kw.toLowerCase()));
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setKw(""); } };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <div onClick={() => setOpen((p) => !p)}
+        style={{ ...SEL, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", userSelect: "none", color: value ? "#111827" : "#374151" }}>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedLabel || placeholder}</span>
+        <ChevronDown size={15} color="#9CA3AF" style={{ flexShrink: 0, transition: "transform 0.15s", transform: open ? "rotate(180deg)" : "none" }} />
+      </div>
+      {open && (
+        <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "#fff", border: "1px solid #E5E7EB", borderRadius: 8, boxShadow: "0 4px 16px rgba(0,0,0,0.10)", zIndex: 200, overflow: "hidden" }}>
+          <div style={{ padding: "8px 8px 4px" }}>
+            <input autoFocus value={kw} onChange={(e) => setKw(e.target.value)} placeholder="ค้นหา..."
+              style={{ width: "100%", height: 32, padding: "0 10px", fontSize: 13, border: "1px solid #E5E7EB", borderRadius: 6, outline: "none", boxSizing: "border-box" }} />
+          </div>
+          <div style={{ maxHeight: 200, overflowY: "auto" }}>
+            <div onClick={() => { onChange(""); setOpen(false); setKw(""); }}
+              style={{ padding: "8px 12px", fontSize: 13, cursor: "pointer", color: "#9CA3AF", background: value === "" ? "#F5F3FF" : "transparent" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "#F9FAFB"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = value === "" ? "#F5F3FF" : "transparent"; }}>
+              {placeholder}
+            </div>
+            {filtered.map((o) => (
+              <div key={o.value} onClick={() => { onChange(o.value); setOpen(false); setKw(""); }}
+                style={{ padding: "8px 12px", fontSize: 13, cursor: "pointer", background: value === o.value ? "#F5F3FF" : "transparent", color: value === o.value ? "#6574FF" : "#111827", fontWeight: value === o.value ? 600 : 400 }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "#F5F3FF"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = value === o.value ? "#F5F3FF" : "transparent"; }}>
+                {o.label}
+              </div>
+            ))}
+            {filtered.length === 0 && <div style={{ padding: "8px 12px", fontSize: 13, color: "#9CA3AF" }}>ไม่พบข้อมูล</div>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── Custom Y tick (truncate long company names) ─────── */
 const CompanyTick = ({ x, y, payload }: { x?: number; y?: number; payload?: { value: string } }) => {
   const v = payload?.value ?? "";
@@ -199,25 +414,40 @@ const CompanyTick = ({ x, y, payload }: { x?: number; y?: number; payload?: { va
 
 /* ─── Main component ─────────────────────────────────── */
 export function Page4Recipients() {
-  const [f_dateFrom, setDateFrom] = useState("");
-  const [f_dateTo,   setDateTo]   = useState("");
-  const [f_companies, setCompanies] = useState<string[]>([]);
-  const [a, setA] = useState({ dateFrom: "", dateTo: "", companies: [] as string[] });
+  const [f_dateFrom,    setDateFrom]    = useState("");
+  const [f_dateTo,      setDateTo]      = useState("");
+  const [f_companies,   setCompanies]   = useState<string[]>([]);
+  const [f_weaponType,  setWeaponType]  = useState("");
+  const [f_unit,        setUnit]        = useState("");
+  const [f_weapons,     setWeapons]     = useState<string[]>([]);
+  const [f_region,      setRegion]      = useState("");
+  const [f_provinces,   setProvinces]   = useState<string[]>([]);
+  const [f_buyers,         setBuyers]         = useState<string[]>([]);
+  const [f_buyerUnits,     setBuyerUnits]     = useState<string[]>([]);
+  const [f_transportTypes, setTransportTypes] = useState<string[]>([]);
+  const [f_moveCategories, setMoveCategories] = useState<string[]>([]);
+  const [f_licenseStatus,  setLicenseStatus]  = useState("");
+  const [a, setA] = useState({ dateFrom: "", dateTo: "", companies: [] as string[], weaponType: "", unit: "", region: "", provinces: [] as string[], buyers: [] as string[], buyerUnits: [] as string[], weapons: [] as string[], transportTypes: [] as string[], moveCategories: [] as string[], licenseStatus: "" });
   const [searched, setSearched] = useState(false);
   const [tablePage, setTablePage] = useState(1);
   const [tablePageSize, setTablePageSize] = useState(10);
 
-  /* โหลดข้อมูลจริง (async) แล้วจัดกลุ่มเป็นหนังสืออนุญาต (ฉบับ) */
-  const [ALL_DOCS, setDocs] = useState<DocRow[]>([]);
+  /* โหลดข้อมูลจริง (async) — เก็บ row ดิบไว้ แล้วค่อยกรอง+จัดกลุ่มเป็นหนังสืออนุญาต (ฉบับ) */
+  const [ALL_ROWS, setRows] = useState<MoveRow[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   useEffect(() => {
     let alive = true;
-    loadMoveRows().then((rows) => { if (alive) { setDocs(buildDocs(rows)); setDataLoading(false); } });
+    loadMoveRows().then((rows) => { if (alive) { setRows(rows); setDataLoading(false); } });
     return () => { alive = false; };
   }, []);
 
-  const handleSearch = () => { setA({ dateFrom: f_dateFrom, dateTo: f_dateTo, companies: f_companies }); setSearched(true); setTablePage(1); };
-  const handleReset  = () => { setDateFrom(""); setDateTo(""); setCompanies([]); setA({ dateFrom: "", dateTo: "", companies: [] }); setSearched(false); };
+  const handleSearch = () => { setA({ dateFrom: f_dateFrom, dateTo: f_dateTo, companies: f_companies, weaponType: f_weaponType, unit: f_unit, region: f_region, provinces: f_provinces, buyers: f_buyers, buyerUnits: f_buyerUnits, weapons: f_weapons, transportTypes: f_transportTypes, moveCategories: f_moveCategories, licenseStatus: f_licenseStatus }); setSearched(true); setTablePage(1); };
+  const handleReset  = () => {
+    setDateFrom(""); setDateTo(""); setCompanies([]); setWeaponType(""); setUnit(""); setWeapons([]);
+    setRegion(""); setProvinces([]); setBuyers([]); setBuyerUnits([]); setTransportTypes([]); setMoveCategories([]); setLicenseStatus("");
+    setA({ dateFrom: "", dateTo: "", companies: [], weaponType: "", unit: "", region: "", provinces: [], buyers: [], buyerUnits: [], weapons: [], transportTypes: [], moveCategories: [], licenseStatus: "" });
+    setSearched(false);
+  };
 
   /* chart capture */
   const statusBarRef = useRef<HTMLDivElement>(null);
@@ -262,13 +492,39 @@ export function Page4Recipients() {
       } catch (e) { console.error("copy failed", e); }
     });
 
-  /* filtered docs */
-  const docs = !searched ? [] : ALL_DOCS.filter((d) => {
-    if (a.companies.length && !a.companies.includes(d.companyId)) return false;
-    if (a.dateFrom && d.dateISO && d.dateISO < a.dateFrom) return false;
-    if (a.dateTo && d.dateISO && d.dateISO > a.dateTo) return false;
+  /* กรองที่ระดับ row (เหมือนเมนู 1) แล้วจัดกลุ่มเป็นหนังสืออนุญาต — เอกสารจะแสดงถ้ามี row ที่ผ่าน filter อย่างน้อย 1 */
+  const filterRow = (r: MoveRow) => {
+    if (a.companies.length && !a.companies.includes(r.companyId)) return false;
+    if (a.transportTypes.length && !a.transportTypes.includes(r.transportType)) return false;
+    if (a.moveCategories.length && !a.moveCategories.includes(moveCategoryOf(r))) return false;
+    if (a.region && r.region !== a.region) return false;
+    if (a.provinces.length && !a.provinces.includes(r.dstProvince)) return false;
+    if (a.buyers.length && !a.buyers.includes(buyerUnitGroupId(r.buyerUnit))) return false;
+    if (a.buyerUnits.length && !a.buyerUnits.includes(r.buyerUnit)) return false;
+    if (a.unit && r.unit !== a.unit) return false;
+    if (a.dateFrom && r.dateISO && r.dateISO < a.dateFrom) return false;
+    if (a.dateTo && r.dateISO && r.dateISO > a.dateTo) return false;
+    if (a.licenseStatus === "expired" && !isExpiredTH(r.expireTH)) return false;
+    if (a.licenseStatus === "valid" && isExpiredTH(r.expireTH)) return false;
+    if (a.weapons.length) {
+      if (!a.weapons.includes(r.weaponCode)) return false;
+    } else if (a.weaponType && r.weaponCategory !== a.weaponType) {
+      return false;
+    }
     return true;
-  });
+  };
+  const docs = !searched ? [] : buildDocs(ALL_ROWS.filter(filterRow));
+
+  /* DDL options ที่ผูกกัน (ภาค→จังหวัด, กลุ่ม→หน่วยผู้ซื้อ, ประเภทอาวุธ→อาวุธ) */
+  const filteredWeaponOptions = f_weaponType ? WEAPONS.filter((w) => w.category === f_weaponType) : [];
+  const buyerUnitOptions = BUYER_UNIT_OPTIONS
+    .filter((u) => f_buyers.length === 0 || f_buyers.includes(buyerUnitGroupId(u.name)))
+    .map((u) => ({ id: u.name, label: u.name }));
+  const provinceOptions = [...new Map(
+    ALL_ROWS
+      .filter((r) => r.dstProvince && (!f_region || r.region === f_region))
+      .map((r) => [r.dstProvince, { id: r.dstProvince, label: r.dstProvince }])
+  ).values()].sort((x, y) => x.label.localeCompare(y.label, "th"));
 
   const totalDocs = docs.length;
   const visibleStatuses = STATUSES.filter((s) => !hiddenSeries.has(s));
@@ -354,10 +610,18 @@ export function Page4Recipients() {
 
   const antColumns: TableColumnsType<TableRow> = [
     { title: "#", key: "no", width: 56, fixed: "left" as const, align: "center" as const, render: (_: unknown, __: TableRow, i: number) => (tablePage - 1) * tablePageSize + i + 1 },
-    { title: "หนังสืออนุญาต", dataIndex: "docNo", key: "docNo", width: 150, ...getColSearchProps("docNo", "หนังสืออนุญาต"), render: (v: string) => <span style={{ fontFamily: "monospace", fontWeight: 600 }}>{v}</span> },
-    { title: "วันที่อนุญาต", dataIndex: "dateTH", key: "dateTH", width: 130, sorter: (a, b) => a.dateISO.localeCompare(b.dateISO) },
-    { title: "วันที่หมดอายุ", dataIndex: "expireTH", key: "expireTH", width: 130 },
+    { title: "หนังสืออนุญาต อ.10", dataIndex: "docNo", key: "docNo", width: 160, ...getColSearchProps("docNo", "หนังสืออนุญาต"), render: (v: string) => <span style={{ fontFamily: "monospace", fontWeight: 600 }}>{v}</span> },
+    { title: "วันที่อนุญาต อ.10", dataIndex: "dateTH", key: "dateTH", width: 140, sorter: (a, b) => a.dateISO.localeCompare(b.dateISO) },
+    { title: "วันที่หมดอายุ อ.10", dataIndex: "expireTH", key: "expireTH", width: 140 },
     { title: "ผู้ประกอบการ", dataIndex: "company", key: "company", sorter: (a, b) => a.company.localeCompare(b.company, "th"), ...getColSearchProps("company", "ผู้ประกอบการ") },
+    { title: "สถานะหนังสืออนุญาต", dataIndex: "expired", key: "expired", width: 170, align: "center" as const,
+      filters: [{ text: "ยังไม่หมดอายุ", value: false }, { text: "หมดอายุ", value: true }],
+      onFilter: (value, record) => record.expired === value,
+      render: (v: boolean) => {
+        const st = LIC_STATUS_STYLE[v ? "expired" : "valid"];
+        return <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", height: 24, padding: "0 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, background: st.bg, color: st.color, whiteSpace: "nowrap" }}>{st.label}</span>;
+      },
+    },
     { title: "สถานะการขนย้าย", dataIndex: "status", key: "status", width: 170, align: "center" as const,
       filters: STATUSES.map((s) => ({ text: s, value: s })),
       onFilter: (value, record) => record.status === value,
@@ -373,19 +637,21 @@ export function Page4Recipients() {
     dataSource: tableData,
     size: "middle",
     pagination: { current: tablePage, pageSize: tablePageSize, showSizeChanger: true, pageSizeOptions: ["10","20","50"], showTotal: (total, range) => `${range[0]}-${range[1]} จาก ${total} รายการ`, locale: { items_per_page: "/หน้า", jump_to: "ไปที่", page: "หน้า" }, onChange: (p, ps) => { setTablePage(p); setTablePageSize(ps); } },
-    scroll: { x: 900 },
+    scroll: { x: 1120 },
   };
 
   const exportExcel = () => {
     const data = docs.map((d, i) => ({
-      "#": i + 1, "หนังสืออนุญาต": d.docNo, "วันที่อนุญาต": d.dateTH, "วันที่หมดอายุ": d.expireTH,
-      "ผู้ประกอบการ": d.company, "สถานะการขนย้าย": d.status,
+      "#": i + 1, "หนังสืออนุญาต อ.10": d.docNo, "วันที่อนุญาต อ.10": d.dateTH, "วันที่หมดอายุ อ.10": d.expireTH,
+      "ผู้ประกอบการ": d.company, "สถานะหนังสืออนุญาต": d.expired ? "หมดอายุ" : "ยังไม่หมดอายุ", "สถานะการขนย้าย": d.status,
     }));
     const ws = XLSX.utils.json_to_sheet(data);
-    ws["!cols"] = [{ wch: 5 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 40 }, { wch: 18 }];
+    ws["!cols"] = [{ wch: 5 }, { wch: 18 }, { wch: 16 }, { wch: 16 }, { wch: 40 }, { wch: 18 }, { wch: 18 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "สถานะการขนย้าย");
-    XLSX.writeFile(wb, "ติดตามสถานะการขนย้าย.xlsx");
+    const d = new Date(); const p = (n: number) => String(n).padStart(2, "0");
+    const stamp = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}`;
+    XLSX.writeFile(wb, `ติดตามสถานะการขนย้ายตามหนังสืออนุญาตขนย้ายอาวุธ_${stamp}.xlsx`);
   };
 
   const chartBtn = (onClick: () => void, copied: boolean, isCopy: boolean) => (
@@ -400,42 +666,107 @@ export function Page4Recipients() {
       {/* Header */}
       <div style={{ fontSize: 12, color: "#8B8E95", marginBottom: 4 }}>ระบบ Dashboard / Dashboard</div>
       <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 20, fontWeight: 700, color: "#0E1119" }}>ติดตามสถานะการขนย้ายตามหนังสืออนุญาตขนย้ายอาวุธ ที่ยังไม่หมดอายุ</div>
+        <div style={{ fontSize: 20, fontWeight: 700, color: "#0E1119" }}>ติดตามสถานะการขนย้ายตามหนังสืออนุญาตขนย้ายอาวุธ</div>
       </div>
 
       {/* Filter Card */}
       <div style={{ background: "#fff", borderRadius: 16, padding: 24, boxShadow: "0 1px 3px rgba(15,23,42,0.08)", marginBottom: 16 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "#0E1119", marginBottom: 16 }}>ค้นหาข้อมูล</div>
 
-        {/* Row 1: วันที่อนุญาต เริ่ม (1/4) | สิ้นสุด (1/4) | ผู้ประกอบการ (2/4) */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: 12 }}>
+        {/* Row 1: ช่วงวันที่อนุญาต | ประเภทขนย้าย | ประเภทการขนย้าย */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
           <div>
-            <label style={LBL}>วันที่อนุญาต เริ่ม</label>
-            <ThaiDatePicker value={f_dateFrom} onChange={setDateFrom} />
+            <label style={LBL}>ช่วงวันที่อนุญาต</label>
+            <ThaiDateRangePicker from={f_dateFrom} to={f_dateTo} onChange={(from, to) => { setDateFrom(from); setDateTo(to); }} />
           </div>
           <div>
-            <label style={LBL}>วันที่อนุญาต สิ้นสุด</label>
-            <ThaiDatePicker value={f_dateTo} onChange={setDateTo} />
+            <label style={LBL}>ประเภทขนย้าย</label>
+            <MultiSelect placeholder="ทั้งหมด"
+              options={TRANSPORT_TYPES.map((t) => ({ id: t, label: t }))}
+              selected={f_transportTypes} onChange={setTransportTypes} />
           </div>
           <div>
-            <label style={LBL}>ผู้ประกอบการ</label>
-            <MultiSelect placeholder="ทั้งหมด" options={COMPANY_OPTIONS.map((c) => ({ id: c.id, label: c.name }))} selected={f_companies} onChange={setCompanies} showSearch />
+            <label style={LBL}>ประเภทการขนย้าย</label>
+            <MultiSelect placeholder="ทั้งหมด"
+              options={MOVE_CATEGORIES.map((t) => ({ id: t, label: t }))}
+              selected={f_moveCategories} onChange={setMoveCategories} showSearch />
           </div>
         </div>
 
-        {/* Row 2: ปุ่ม */}
+        {/* Row 2: ผู้ประกอบการ | ภาค | จังหวัด */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
+          <div>
+            <label style={LBL}>ผู้ประกอบการ</label>
+            <MultiSelect placeholder="ทั้งหมด"
+              options={COMPANIES.map((c) => ({ id: c.id, label: c.name }))}
+              selected={f_companies} onChange={setCompanies} showSearch />
+          </div>
+          <div>
+            <label style={LBL}>ภาค(ผู้รับปลายทาง)</label>
+            <SelectField value={f_region} onChange={(v) => { setRegion(v); setProvinces([]); }} placeholder="ทั้งหมด"
+              options={REGIONS.map((r) => ({ value: r.id, label: r.label }))} />
+          </div>
+          <div>
+            <label style={LBL}>จังหวัด(ผู้รับปลายทาง)</label>
+            <MultiSelect placeholder="ทั้งหมด" options={provinceOptions} selected={f_provinces} onChange={setProvinces} showSearch />
+          </div>
+        </div>
+
+        {/* Row 3: กลุ่มหน่วยผู้ซื้อ(ผู้รับปลายทาง) 1/3 | หน่วยผู้ซื้อ(ผู้รับปลายทาง) 2/3 */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12, marginBottom: 12 }}>
+          <div>
+            <label style={LBL}>กลุ่มหน่วยผู้ซื้อ(ผู้รับปลายทาง)</label>
+            <MultiSelect placeholder="ทั้งหมด"
+              options={BUYER_GROUPS.map((b) => ({ id: b.id, label: b.label }))}
+              selected={f_buyers} onChange={(v) => { setBuyers(v); setBuyerUnits([]); }} showSearch />
+          </div>
+          <div>
+            <label style={LBL}>หน่วยผู้ซื้อ(ผู้รับปลายทาง)</label>
+            <MultiSelect placeholder="ทั้งหมด" options={buyerUnitOptions} selected={f_buyerUnits} onChange={setBuyerUnits} showSearch />
+          </div>
+        </div>
+
+        {/* Row 4: ประเภทอาวุธ * | หน่วยนับ * | อาวุธ (1/3 เท่ากัน) */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, alignItems: "end" }}>
+          <div>
+            <label style={LBL}>ประเภทอาวุธ <span style={{ color: "#EF4444" }}>*</span></label>
+            <SelectField value={f_weaponType} onChange={(v) => { setWeaponType(v); setWeapons([]); if (v === "กระสุน") setUnit("นัด"); }} placeholder="เลือกประเภท"
+              options={WEAPON_CATEGORY_OPTIONS.map((c) => ({ value: c, label: c }))} />
+          </div>
+          <div>
+            <label style={LBL}>หน่วยนับ <span style={{ color: "#EF4444" }}>*</span></label>
+            <SelectField value={f_unit} onChange={(v) => { setUnit(v); setWeapons([]); }} placeholder="เลือกหน่วยนับ"
+              options={UNIT_OPTIONS.map((u) => ({ value: u, label: u }))} />
+          </div>
+          <div>
+            <label style={LBL}>อาวุธ</label>
+            <MultiSelect placeholder="ทั้งหมด"
+              options={filteredWeaponOptions} selected={f_weapons} onChange={setWeapons} showSearch />
+          </div>
+        </div>
+
+        {/* Row 5: สถานะหนังสืออนุญาต */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginTop: 12 }}>
+          <div>
+            <label style={LBL}>สถานะหนังสืออนุญาต</label>
+            <SelectField value={f_licenseStatus} onChange={setLicenseStatus} placeholder="ทั้งหมด"
+              options={LICENSE_STATUS_OPTIONS} />
+          </div>
+        </div>
+
+        {/* Buttons */}
         <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
           <button onClick={handleReset}
-            style={{ height: 44, padding: "0 20px", fontSize: 13, border: `1.5px solid ${PRIMARY}`, borderRadius: 10, background: "#fff", color: PRIMARY, cursor: "pointer", fontWeight: 500, whiteSpace: "nowrap" }}
+            style={{ height: 40, padding: "0 20px", fontSize: 13, border: `1.5px solid ${PRIMARY}`, borderRadius: 8, background: "#fff", color: PRIMARY, cursor: "pointer", fontWeight: 500, whiteSpace: "nowrap" }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#EEF2FF"; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#fff"; }}>
             รีเซ็ต
           </button>
-          <button onClick={handleSearch} disabled={dataLoading}
+          <button onClick={handleSearch} disabled={!f_weaponType || !f_unit || dataLoading}
             title={dataLoading ? "กำลังโหลดข้อมูล..." : ""}
-            style={{ width: 44, height: 44, borderRadius: 10, background: dataLoading ? "#D1D5DB" : PRIMARY, border: "none", cursor: dataLoading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.15s" }}
-            onMouseEnter={(e) => { if (!dataLoading) (e.currentTarget as HTMLButtonElement).style.background = "#515ed8"; }}
-            onMouseLeave={(e) => { if (!dataLoading) (e.currentTarget as HTMLButtonElement).style.background = PRIMARY; }}>
+            style={{ width: 40, height: 40, borderRadius: 8, background: (!f_weaponType || !f_unit || dataLoading) ? "#D1D5DB" : PRIMARY, border: "none", cursor: (!f_weaponType || !f_unit || dataLoading) ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.15s" }}
+            onMouseEnter={(e) => { if (f_weaponType && f_unit && !dataLoading) (e.currentTarget as HTMLButtonElement).style.background = "#515ed8"; }}
+            onMouseLeave={(e) => { if (f_weaponType && f_unit && !dataLoading) (e.currentTarget as HTMLButtonElement).style.background = PRIMARY; }}>
             <Search size={17} color="#fff" />
           </button>
         </div>
