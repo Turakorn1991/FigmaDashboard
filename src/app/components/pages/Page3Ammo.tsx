@@ -533,9 +533,11 @@ export function Page3Ammo() {
   const [hiddenCompanies, setHiddenCompanies] = useState<Set<string>>(new Set());
   const [hiddenBuyers,    setHiddenBuyers]    = useState<Set<string>>(new Set());
   const [hiddenDocs,      setHiddenDocs]      = useState<Set<string>>(new Set());
+  const [hiddenCountries, setHiddenCountries] = useState<Set<string>>(new Set());
   const toggleCompany = (id: string) => setHiddenCompanies((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const toggleBuyer   = (id: string) => setHiddenBuyers((s)    => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const toggleDoc     = (id: string) => setHiddenDocs((s)      => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleCountry = (c: string)  => setHiddenCountries((s) => { const n = new Set(s); n.has(c)  ? n.delete(c)  : n.add(c);  return n; });
 
   const barChartRef = useRef<HTMLDivElement>(null);
   const pieChartRef = useRef<HTMLDivElement>(null);
@@ -604,10 +606,12 @@ export function Page3Ammo() {
   /* Top 5 ประเทศผู้ผลิต (ตามจำนวนที่ได้รับอนุญาต) */
   const countryQtyMap: Record<string, number> = {};
   rows.forEach((r) => { const c = countryOf(r); countryQtyMap[c] = (countryQtyMap[c] ?? 0) + r.qty; });
-  const top5Country = Object.entries(countryQtyMap)
+  const allCountriesSorted = Object.entries(countryQtyMap)
     .map(([name, qty]) => ({ name, qty }))
-    .sort((a, b) => b.qty - a.qty)
-    .slice(0, 5);
+    .sort((a, b) => b.qty - a.qty);
+  // chips = Top 5 base (เท่าจำนวนแท่ง); ซ่อนแล้วแท่งหาย ไม่ดึงตัวที่ 6 ขึ้นมา
+  const top5CountryBase = allCountriesSorted.slice(0, 5);
+  const top5Country = top5CountryBase.filter((d) => !hiddenCountries.has(d.name));
 
   const exportRawExcel = () => {
     const headers = [
@@ -852,6 +856,28 @@ export function Page3Ammo() {
           <span style={{ fontSize: 13, fontWeight: 700, color: "#0E1119", flex: 1 }}>ยอดรวม Top 5</span>
           <span style={{ fontSize: 13, fontWeight: 700, color: PRIMARY }}>{top5Country.reduce((s, d) => s + d.qty, 0).toLocaleString()}{a.unit ? ` ${a.unit}` : ""}</span>
         </div>
+        {/* Toggle chips — ประเทศผู้ผลิต */}
+        {top5CountryBase.length > 0 && (
+          <div data-capture-hide style={{ marginTop: 14, borderTop: "1px solid #F3F4F6", paddingTop: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ fontSize: 11, color: "#8B8E95", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>แสดง/ซ่อน ประเทศผู้ผลิต</span>
+              {hiddenCountries.size > 0 && (
+                <button onClick={() => setHiddenCountries(new Set())} style={{ fontSize: 11, color: PRIMARY, background: "#EEF2FF", border: "none", borderRadius: 6, padding: "2px 8px", cursor: "pointer" }}>แสดงทั้งหมด</button>
+              )}
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {top5CountryBase.map((c, i) => {
+                const hidden = hiddenCountries.has(c.name);
+                return (
+                  <button key={c.name} onClick={() => toggleCountry(c.name)}
+                    style={{ height: 24, padding: "0 10px", fontSize: 11, borderRadius: 20, border: `1.5px solid ${hidden ? "#E5E7EB" : PALETTE[i % PALETTE.length]}`, background: hidden ? "#F9FAFB" : PALETTE[i % PALETTE.length] + "22", color: hidden ? "#9CA3AF" : PALETTE[i % PALETTE.length], cursor: "pointer", fontWeight: 500, textDecoration: hidden ? "line-through" : "none", transition: "all 0.15s" }}>
+                    {c.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Charts — bar (left) + pie (right) */}

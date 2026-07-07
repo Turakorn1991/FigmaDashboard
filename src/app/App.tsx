@@ -7,6 +7,7 @@ import { Page2Company } from "./components/pages/Page2Company";
 import { Page3Ammo } from "./components/pages/Page3Ammo";
 import { Page4Recipients } from "./components/pages/Page4Recipients";
 import { Page5Permits } from "./components/pages/Page5Permits";
+import { Page6ImportA8 } from "./components/pages/Page6ImportA8";
 import { PageOperator } from "./components/pages/PageOperator";
 import { PageRequestA6 } from "./components/pages/PageRequestA6";
 import { PageRequestA4 } from "./components/pages/PageRequestA4";
@@ -21,6 +22,7 @@ const PATH_TO_PAGE: Record<string, number> = {
   "/dashboard/3":  3,
   "/dashboard/4":  4,
   "/dashboard/5":  5,
+  "/dashboard/6":  6,
   "/operator":     10,
   "/request/a6":   20,
   "/request/a4":   21,
@@ -58,6 +60,7 @@ export default function App() {
     3:  <Page3Ammo />,
     4:  <Page4Recipients />,
     5:  <Page5Permits />,
+    6:  <Page6ImportA8 />,
   };
 
   return (
