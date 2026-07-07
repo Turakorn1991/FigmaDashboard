@@ -261,105 +261,108 @@ const INPUT_RADIUS = 10;
 const INPUT_BORDER = "1px solid #E5E7EB";
 const SEL: React.CSSProperties = { width: "100%", height: INPUT_H, padding: "0 12px", fontSize: 13, border: INPUT_BORDER, borderRadius: INPUT_RADIUS, outline: "none", background: "#fff", color: "#374151", appearance: "none" };
 
-/* ─── ThaiDatePicker ──────────────────────────────────── */
+/* ─── Thai calendar constants ─────────────────────────── */
 const THAI_MONTHS = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
 const THAI_DAYS_SHORT = ["อา","จ","อ","พ","พฤ","ศ","ส"];
 
-function ThaiDatePicker({ value, onChange, placeholder = "วว/ดด/ปปปป" }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+/* ─── ThaiDateRangePicker (ช่วงวันที่ ปฏิทิน 2 เดือน) ─── */
+function ThaiDateRangePicker({ from, to, onChange }: { from: string; to: string; onChange: (from: string, to: string) => void }) {
   const [open, setOpen] = useState(false);
-  const [viewYear, setViewYear] = useState(() => { const d = value ? new Date(value) : new Date(); return d.getFullYear(); });
-  const [viewMonth, setViewMonth] = useState(() => { const d = value ? new Date(value) : new Date(); return d.getMonth(); });
+  const [hover, setHover] = useState("");
   const ref = useRef<HTMLDivElement>(null);
+  const init = from ? new Date(from) : new Date();
+  const [viewYear, setViewYear] = useState(init.getFullYear());
+  const [viewMonth, setViewMonth] = useState(init.getMonth());
 
   useEffect(() => {
     if (!open) return;
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setHover(""); } };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
   }, [open]);
 
-  const displayVal = (() => {
-    if (!value) return "";
-    const d = new Date(value);
-    if (isNaN(d.getTime())) return "";
-    const dd = String(d.getDate()).padStart(2, "0");
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const yy = d.getFullYear() + 543;
-    return `${dd}/${mm}/${yy}`;
-  })();
+  const fmt = (isoStr: string) => { if (!isoStr) return ""; const d = new Date(isoStr); if (isNaN(d.getTime())) return ""; return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear() + 543}`; };
+  const iso = (y: number, m: number, d: number) => `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 
-  const selectedDate = value ? new Date(value) : null;
+  const prevMonth = () => { if (viewMonth === 0) { setViewMonth(11); setViewYear((y) => y - 1); } else setViewMonth((m) => m - 1); };
+  const nextMonth = () => { if (viewMonth === 11) { setViewMonth(0); setViewYear((y) => y + 1); } else setViewMonth((m) => m + 1); };
 
-  const prevMonth = () => { if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); } else setViewMonth(m => m - 1); };
-  const nextMonth = () => { if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); } else setViewMonth(m => m + 1); };
-
-  const firstDay = new Date(viewYear, viewMonth, 1).getDay();
-  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-  const cells: (number | null)[] = [...Array(firstDay).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
-  while (cells.length % 7 !== 0) cells.push(null);
-
-  const selectDay = (day: number) => {
-    const mm = String(viewMonth + 1).padStart(2, "0");
-    const dd = String(day).padStart(2, "0");
-    onChange(`${viewYear}-${mm}-${dd}`);
-    setOpen(false);
+  const selectDay = (dISO: string) => {
+    if (!from || (from && to)) onChange(dISO, "");
+    else if (dISO < from) onChange(dISO, "");
+    else { onChange(from, dISO); setOpen(false); setHover(""); }
   };
 
-  const isSelected = (day: number) => {
-    if (!selectedDate) return false;
-    return selectedDate.getFullYear() === viewYear && selectedDate.getMonth() === viewMonth && selectedDate.getDate() === day;
+  const inRange = (dISO: string) => {
+    const end = to || hover;
+    if (!from || !end) return false;
+    const lo = from < end ? from : end, hi = from < end ? end : from;
+    return dISO > lo && dISO < hi;
+  };
+  const isEndpoint = (dISO: string) => dISO === from || dISO === to;
+
+  const navBtn: React.CSSProperties = { border: "none", background: "none", cursor: "pointer", padding: 4, borderRadius: 6, display: "flex", alignItems: "center", color: "#6B7280", fontSize: 15, lineHeight: 1 };
+
+  const renderMonth = (y: number, m: number) => {
+    const firstDay = new Date(y, m, 1).getDay();
+    const days = new Date(y, m + 1, 0).getDate();
+    const cells: (number | null)[] = [...Array(firstDay).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)];
+    while (cells.length % 7 !== 0) cells.push(null);
+    return (
+      <div style={{ minWidth: 244 }}>
+        <div style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "#111827", marginBottom: 10 }}>{THAI_MONTHS[m]} {y + 543}</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 4 }}>
+          {THAI_DAYS_SHORT.map((d) => <div key={d} style={{ textAlign: "center", fontSize: 11, fontWeight: 600, color: "#6B7280", padding: "4px 0" }}>{d}</div>)}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+          {cells.map((day, i) => day === null ? <div key={i} /> : (() => {
+            const dISO = iso(y, m, day);
+            const ep = isEndpoint(dISO), rng = inRange(dISO);
+            return (
+              <button key={i} type="button" onClick={() => selectDay(dISO)}
+                onMouseEnter={(e) => { if (from && !to) setHover(dISO); if (!ep && !rng) (e.currentTarget as HTMLButtonElement).style.background = "#F3F4F6"; }}
+                onMouseLeave={(e) => { if (!ep && !rng) (e.currentTarget as HTMLButtonElement).style.background = rng ? "#EEF2FF" : "transparent"; }}
+                style={{ border: "none", cursor: "pointer", borderRadius: 6, padding: "7px 0", fontSize: 13, fontWeight: ep ? 700 : 400,
+                  background: ep ? PRIMARY : rng ? "#EEF2FF" : "transparent", color: ep ? "#fff" : "#374151" }}>{day}</button>
+            );
+          })())}
+        </div>
+      </div>
+    );
   };
 
-  const today = new Date();
-  const isToday = (day: number) => today.getFullYear() === viewYear && today.getMonth() === viewMonth && today.getDate() === day;
+  const rightY = viewMonth === 11 ? viewYear + 1 : viewYear;
+  const rightM = viewMonth === 11 ? 0 : viewMonth + 1;
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
-      <button
-        type="button"
-        onClick={() => { if (!open) { if (value) { const d = new Date(value); setViewYear(d.getFullYear()); setViewMonth(d.getMonth()); } } setOpen(o => !o); }}
-        style={{ ...SEL, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", textAlign: "left", padding: "0 10px 0 12px" }}
-      >
-        <span style={{ color: displayVal ? "#374151" : "#9CA3AF", fontSize: 13 }}>{displayVal || placeholder}</span>
-        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          {value && <X size={12} color="#9CA3AF" style={{ cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); onChange(""); }} />}
+      <button type="button" onClick={() => setOpen((o) => !o)}
+        style={{ ...SEL, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", textAlign: "left", padding: "0 10px 0 12px" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, flex: 1, overflow: "hidden", whiteSpace: "nowrap" }}>
+          <span style={{ color: from ? "#374151" : "#9CA3AF" }}>{fmt(from) || "วันที่อนุญาตเริ่มต้น"}</span>
+          <span style={{ color: "#9CA3AF" }}>→</span>
+          <span style={{ color: to ? "#374151" : "#9CA3AF" }}>{fmt(to) || "วันที่สิ้นสุด"}</span>
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+          {(from || to) && <X size={12} color="#9CA3AF" style={{ cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); onChange("", ""); setHover(""); }} />}
           <CalendarDays size={15} color="#9CA3AF" />
         </span>
       </button>
-
       {open && (
-        <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 9999, background: "#fff", border: "1px solid #E5E7EB", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", padding: 16, minWidth: 280 }}>
-          {/* Header */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <button type="button" onClick={prevMonth} style={{ border: "none", background: "none", cursor: "pointer", padding: 4, borderRadius: 6, display: "flex", alignItems: "center" }}>
-              <ChevronLeft size={16} color="#374151" />
-            </button>
-            <span style={{ fontSize: 14, fontWeight: 600, color: "#111827" }}>{THAI_MONTHS[viewMonth]} {viewYear + 543}</span>
-            <button type="button" onClick={nextMonth} style={{ border: "none", background: "none", cursor: "pointer", padding: 4, borderRadius: 6, display: "flex", alignItems: "center" }}>
-              <ChevronRight size={16} color="#374151" />
-            </button>
+        <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 9999, background: "#fff", border: "1px solid #E5E7EB", borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", padding: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <div style={{ display: "flex", gap: 2 }}>
+              <button type="button" onClick={() => setViewYear((y) => y - 1)} style={navBtn}>«</button>
+              <button type="button" onClick={prevMonth} style={navBtn}><ChevronLeft size={16} color="#374151" /></button>
+            </div>
+            <div style={{ display: "flex", gap: 2 }}>
+              <button type="button" onClick={nextMonth} style={navBtn}><ChevronRight size={16} color="#374151" /></button>
+              <button type="button" onClick={() => setViewYear((y) => y + 1)} style={navBtn}>»</button>
+            </div>
           </div>
-          {/* Day names */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 4 }}>
-            {THAI_DAYS_SHORT.map(d => (
-              <div key={d} style={{ textAlign: "center", fontSize: 11, fontWeight: 600, color: "#6B7280", padding: "4px 0" }}>{d}</div>
-            ))}
-          </div>
-          {/* Day cells */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
-            {cells.map((day, i) => day === null ? (
-              <div key={i} />
-            ) : (
-              <button key={i} type="button" onClick={() => selectDay(day)}
-                style={{ border: "none", cursor: "pointer", borderRadius: 6, padding: "6px 0", fontSize: 13, fontWeight: isSelected(day) ? 700 : 400,
-                  background: isSelected(day) ? PRIMARY : "transparent",
-                  color: isSelected(day) ? "#fff" : isToday(day) ? PRIMARY : "#374151",
-                  outline: isToday(day) && !isSelected(day) ? `1.5px solid ${PRIMARY}` : "none"
-                }}
-                onMouseEnter={(e) => { if (!isSelected(day)) (e.currentTarget as HTMLButtonElement).style.background = "#EEF2FF"; }}
-                onMouseLeave={(e) => { if (!isSelected(day)) (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
-              >{day}</button>
-            ))}
+          <div style={{ display: "flex", gap: 24 }}>
+            {renderMonth(viewYear, viewMonth)}
+            {renderMonth(rightY, rightM)}
           </div>
         </div>
       )}
@@ -759,15 +762,11 @@ export function Page3Ammo() {
       <div style={{ background: "#fff", borderRadius: 16, padding: 24, boxShadow: "0 1px 3px rgba(15,23,42,0.08)", marginBottom: 16 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "#0E1119", marginBottom: 16 }}>ค้นหาข้อมูล</div>
 
-        {/* Row 1: วันที่อนุญาต เริ่ม | วันที่อนุญาต สิ้นสุด | ผู้ประกอบการ */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: 12, marginBottom: 12 }}>
+        {/* Row 1: ช่วงวันที่อนุญาต (1/3) | ผู้ประกอบการ (2/3) */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12, marginBottom: 12 }}>
           <div>
-            <label style={LBL}>วันที่อนุญาต เริ่ม</label>
-            <ThaiDatePicker value={f_dateFrom} onChange={setDateFrom} />
-          </div>
-          <div>
-            <label style={LBL}>วันที่อนุญาต สิ้นสุด</label>
-            <ThaiDatePicker value={f_dateTo} onChange={setDateTo} />
+            <label style={LBL}>ช่วงวันที่อนุญาต</label>
+            <ThaiDateRangePicker from={f_dateFrom} to={f_dateTo} onChange={(from, to) => { setDateFrom(from); setDateTo(to); }} />
           </div>
           <div>
             <label style={LBL}>ผู้ประกอบการ</label>
@@ -777,8 +776,8 @@ export function Page3Ammo() {
           </div>
         </div>
 
-        {/* Row 2: หน่วยนับ (1/4) | วัตถุหรืออาวุธ (3/4) */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 3fr", gap: 12, alignItems: "end" }}>
+        {/* Row 2: หน่วยนับ (1/3) | วัตถุหรืออาวุธ (2/3) */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12, alignItems: "end" }}>
           <div>
             <label style={LBL}>หน่วยนับ <span style={{ color: "#EF4444" }}>*</span></label>
             <SelectField value={f_unit} onChange={(v) => { setUnit(v); setWeapons([]); }} placeholder="เลือกหน่วยนับ"
