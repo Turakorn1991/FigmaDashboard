@@ -6,6 +6,13 @@ import type { TableColumnsType, TableProps } from "antd";
 import * as XLSX from "xlsx";
 import { BUYER_UNITS } from "../../data/buyerUnits";
 import { WEAPON_ITEMS, UNIT_OPTIONS, COMPANY_OPTIONS, IMPORT_ROWS } from "../../data/weaponItems";
+import type { ImportRow } from "../../data/weaponItems";
+
+/* ─── Derived manufacturer fields (mock — ไม่มีใน source data) ──────── */
+const MFG_COUNTRIES = ["สหรัฐอเมริกา", "เยอรมนี", "อิตาลี", "ออสเตรีย", "เบลเยียม", "สาธารณรัฐเช็ก", "บราซิล", "เกาหลีใต้", "สวิตเซอร์แลนด์", "ตุรกี"];
+const hashStr = (s: string) => { let n = 0; for (const c of s) n = (n * 31 + c.charCodeAt(0)) >>> 0; return n; };
+const countryOf = (r: ImportRow) => MFG_COUNTRIES[hashStr(r.weaponCode + r.docNo) % MFG_COUNTRIES.length];
+const actualQtyOf = (r: ImportRow) => Math.round(r.qty * (0.7 + (hashStr(r.docNo + r.id) % 31) / 100));
 
 const PRIMARY = "#6574FF";
 const FF = "'Noto Sans Thai', Inter, sans-serif";
@@ -530,9 +537,12 @@ export function Page3Ammo() {
   const barChartRef = useRef<HTMLDivElement>(null);
   const pieChartRef = useRef<HTMLDivElement>(null);
   const docChartRef = useRef<HTMLDivElement>(null);
+  const countryChartRef = useRef<HTMLDivElement>(null);
   const [copiedBar, setCopiedBar] = useState(false);
   const [copiedPie, setCopiedPie] = useState(false);
   const [copiedDoc, setCopiedDoc] = useState(false);
+  const [copiedCountry, setCopiedCountry] = useState(false);
+  const [activeCountryIndex, setActiveCountryIndex] = useState<number | undefined>(undefined);
 
   const captureChart = async (ref: React.RefObject<HTMLDivElement>, fn: (el: HTMLDivElement) => Promise<void>) => {
     const el = ref.current;
@@ -588,20 +598,31 @@ export function Page3Ammo() {
 
   const totalQty = rows.reduce((s, r) => s + r.qty, 0);
 
+  /* Top 5 ประเทศผู้ผลิต (ตามจำนวนที่ได้รับอนุญาต) */
+  const countryQtyMap: Record<string, number> = {};
+  rows.forEach((r) => { const c = countryOf(r); countryQtyMap[c] = (countryQtyMap[c] ?? 0) + r.qty; });
+  const top5Country = Object.entries(countryQtyMap)
+    .map(([name, qty]) => ({ name, qty }))
+    .sort((a, b) => b.qty - a.qty)
+    .slice(0, 5);
+
   const exportRawExcel = () => {
     const headers = [
-      "เลขที่หนังสือ","วันที่อนุญาต","วันที่หมดอายุ","ผู้ประกอบการ",
-      "รหัสวัตถุหรืออาวุธ","วัตถุหรืออาวุธ","จำนวนที่ได้รับอนุญาต","หน่วยนับ",
+      "#","เลขที่หนังสือ อ.8","วันที่อนุญาต","วันที่หมดอายุ","ผู้ประกอบการ",
+      "รหัสวัตถุหรืออาวุธ","วัตถุหรืออาวุธ","ประเทศผู้ผลิต","จำนวนที่ได้รับอนุญาต","จำนวนที่นำเข้าจริง(ตามแจ้งกรมศุลฯ)","หน่วยนับ",
     ];
-    const dataRows = rows.map((r) => [
-      r.docNo, r.dateTH, r.expireTH, r.company,
-      r.weaponCode, r.weaponName, r.qty, r.unit || "-",
+    const dataRows = rows.map((r, i) => [
+      i + 1, r.docNo, r.dateTH, r.expireTH, r.company,
+      r.weaponCode, r.weaponName, countryOf(r), r.qty, actualQtyOf(r), r.unit || "-",
     ]);
     const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
-    ws["!cols"] = headers.map((_, i) => ({ wch: [16,14,14,40,16,44,18,10][i] ?? 12 }));
+    ws["!cols"] = headers.map((_, i) => ({ wch: [6,16,14,14,40,16,44,20,18,18,10][i] ?? 12 }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "ข้อมูลดิบ");
-    XLSX.writeFile(wb, "ยอดอนุญาตให้สั่งหรือนำเข้าวัตถุหรืออาวุธ.xlsx");
+    const n = new Date();
+    const p = (x: number) => String(x).padStart(2, "0");
+    const ts = `${n.getFullYear()}${p(n.getMonth() + 1)}${p(n.getDate())}${p(n.getHours())}${p(n.getMinutes())}`;
+    XLSX.writeFile(wb, `ยอดอนุญาตให้สั่งหรือนำเข้าวัตถุหรืออาวุธ_${ts}.xlsx`);
   };
 
   const tableData = rows.map((r) => ({
@@ -611,6 +632,8 @@ export function Page3Ammo() {
     dateFormatted: r.dateTH,
     expireDate: r.expireTH,
     weaponLabel: r.weaponName,
+    country: countryOf(r),
+    actualQty: actualQtyOf(r),
   }));
 
   type TableRow = (typeof tableData)[0];
@@ -638,14 +661,16 @@ export function Page3Ammo() {
 
   const antColumns: TableColumnsType<TableRow> = [
     { title: "#",                 key: "no",            width: 52,  fixed: "left" as const, align: "center" as const, render: (_: unknown, __: TableRow, i: number) => (tablePage - 1) * tablePageSize + i + 1 },
-    { title: "เลขที่หนังสือ",     dataIndex: "docNo",       key: "docNo",      width: 130, ...getColSearchProps("docNo", "เลขที่หนังสือ") },
+    { title: "เลขที่หนังสือ อ.8", dataIndex: "docNo",       key: "docNo",      width: 130, ...getColSearchProps("docNo", "เลขที่หนังสือ อ.8") },
     { title: "วันที่อนุญาต",      dataIndex: "dateFormatted", key: "date",     width: 120, sorter: (a, b) => a.date.localeCompare(b.date) },
     { title: "วันที่หมดอายุ",     dataIndex: "expireDate",  key: "expireDate", width: 120 },
     { title: "ผู้ประกอบการ",      dataIndex: "company",     key: "company",    width: 240, sorter: (a, b) => a.company.localeCompare(b.company, "th"), ...getColSearchProps("company", "ผู้ประกอบการ") },
     { title: "รหัสวัตถุหรืออาวุธ", dataIndex: "weaponCode",  key: "weaponCode", width: 140, sorter: (a, b) => a.weaponCode.localeCompare(b.weaponCode), ...getColSearchProps("weaponCode", "รหัสวัตถุหรืออาวุธ"), render: (v: string) => <span style={{ fontFamily: "monospace" }}>{v}</span> },
     { title: "วัตถุหรืออาวุธ",     dataIndex: "weaponLabel", key: "weapon",     width: 280, sorter: (a, b) => a.weaponLabel.localeCompare(b.weaponLabel, "th"), ...getColSearchProps("weaponLabel", "วัตถุหรืออาวุธ") },
+    { title: "ประเทศผู้ผลิต",     dataIndex: "country",     key: "country",    width: 150, sorter: (a, b) => a.country.localeCompare(b.country, "th"), ...getColSearchProps("country", "ประเทศผู้ผลิต") },
     { title: "จำนวนที่ได้รับอนุญาต", dataIndex: "qty",       key: "qty",        width: 150, align: "right" as const, sorter: (a, b) => a.qty - b.qty, render: (v: number) => <span style={{ color: PRIMARY, fontWeight: 600 }}>{v.toLocaleString()}</span> },
-    { title: "หน่วยนับ",          key: "unit",                                 width: 100, align: "center" as const, render: () => <span style={{ color: "#374151" }}>{a.unit || "-"}</span> },
+    { title: "จำนวนที่นำเข้าจริง(ตามแจ้งกรมศุลฯ)", dataIndex: "actualQty",  key: "actualQty",  width: 220, align: "right" as const, sorter: (a, b) => a.actualQty - b.actualQty, render: (v: number) => <span style={{ color: "#059669", fontWeight: 600 }}>{v.toLocaleString()}</span> },
+    { title: "หน่วยนับ",          key: "unit",              dataIndex: "unit", width: 100, align: "center" as const, render: (v: string) => <span style={{ color: "#374151" }}>{v || "-"}</span> },
   ];
 
   const antTableProps: TableProps<TableRow> = {
@@ -653,7 +678,7 @@ export function Page3Ammo() {
     dataSource: tableData,
     size: "middle",
     pagination: { current: tablePage, pageSize: tablePageSize, showSizeChanger: true, pageSizeOptions: ["10","20","50"], showTotal: (total, range) => `${range[0]}-${range[1]} จาก ${total} รายการ`, locale: { items_per_page: "/หน้า", jump_to: "ไปที่", page: "หน้า" }, onChange: (p, ps) => { setTablePage(p); setTablePageSize(ps); } },
-    scroll: { x: 1280 },
+    scroll: { x: 1830 },
   };
 
   /* bar chart — only companies present in filtered rows */
@@ -780,6 +805,53 @@ export function Page3Ammo() {
             onMouseLeave={(e) => { if (f_unit && f_weapons.length) (e.currentTarget as HTMLButtonElement).style.background = PRIMARY; }}>
             <Search size={17} color="#fff" />
           </button>
+        </div>
+      </div>
+
+      {/* Chart — Top 5 ประเทศผู้ผลิต (แท่งแนวตั้ง) */}
+      <div ref={countryChartRef} style={{ background: "#fff", borderRadius: 16, padding: 20, boxShadow: "0 1px 3px rgba(15,23,42,0.08)", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119", marginBottom: 2 }}>ยอดอนุญาตให้สั่งหรือนำเข้าวัตถุหรืออาวุธ</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#0E1119" }}>Top 5 แยกตามประเทศผู้ผลิต{searched && a.unit ? ` (${a.unit})` : ""}</div>
+          </div>
+          <div data-capture-hide style={{ display: "flex", gap: 6 }}>
+            <button onClick={() => copyPNG(countryChartRef, setCopiedCountry)}
+              style={{ display: "flex", alignItems: "center", gap: 4, height: 30, padding: "0 10px", fontSize: 12, border: "1px solid #E5E7EB", borderRadius: 7, background: "#fff", color: copiedCountry ? "#059669" : "#6B7280", cursor: "pointer" }}>
+              {copiedCountry ? <Check size={13} /> : <Copy size={13} />}{copiedCountry ? "คัดลอกแล้ว" : "Copy"}
+            </button>
+            <button onClick={() => downloadPNG(countryChartRef, "chart-top5-country.png")}
+              style={{ display: "flex", alignItems: "center", gap: 4, height: 30, padding: "0 10px", fontSize: 12, border: "1px solid #E5E7EB", borderRadius: 7, background: "#fff", color: "#6B7280", cursor: "pointer" }}>
+              <Download size={13} />PNG
+            </button>
+          </div>
+        </div>
+        {top5Country.length === 0 ? (
+          <div style={{ height: 300, display: "flex", alignItems: "center", justifyContent: "center", color: "#9CA3AF", fontSize: 13 }}>
+            {searched ? "ไม่พบข้อมูล" : "กรุณาค้นหาข้อมูล"}
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={top5Country} margin={{ left: 10, right: 20, top: 16, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+              <XAxis type="category" dataKey="name" tick={{ fontSize: 12, fill: "#4B5563" }} axisLine={{ stroke: "#E5E7EB" }} tickLine={false} interval={0} />
+              <YAxis type="number" tick={{ fontSize: 11, fill: "#4B5563" }} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : String(v)} axisLine={false} tickLine={false} />
+              <Tooltip content={<ChartTooltip />} cursor={{ fill: "#F5F3FF" }} />
+              <Bar dataKey="qty" radius={[6, 6, 0, 0]} maxBarSize={72}
+                label={{ position: "top", fontSize: 11, fill: "#374151", fontWeight: 600, formatter: (v: number) => v.toLocaleString() }}
+                onMouseEnter={(_: unknown, index: number) => setActiveCountryIndex(index)}
+                onMouseLeave={() => setActiveCountryIndex(undefined)}>
+                {top5Country.map((_, i) => (
+                  <Cell key={i} fill={PALETTE[i % PALETTE.length]}
+                    opacity={activeCountryIndex === undefined || activeCountryIndex === i ? 1 : 0.4} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 4px 0", borderTop: "1px solid #F3F4F6", marginTop: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#0E1119", flex: 1 }}>ยอดรวม Top 5</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: PRIMARY }}>{top5Country.reduce((s, d) => s + d.qty, 0).toLocaleString()}{a.unit ? ` ${a.unit}` : ""}</span>
         </div>
       </div>
 
