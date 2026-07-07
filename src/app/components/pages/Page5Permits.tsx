@@ -423,6 +423,17 @@ export function Page5Permits() {
   // ยอดรวมกราฟ 1 = นับเฉพาะประเภทที่แสดงอยู่
   const groupBarTotal = docs.filter((d) => !hiddenSeries.has(d.docType) && !hiddenPay.has(d.paid ? "paid" : "unpaid")).length;
   const payVisible = { paid: !hiddenPay.has("paid"), unpaid: !hiddenPay.has("unpaid") };
+  // label ตัวเลขรวม (ที่มองเห็น) ปลายแท่งของแต่ละประเภทหนังสือ
+  const stackLabel = (t: string) => (props: { x?: number; y?: number; width?: number; height?: number; index?: number }) => {
+    const { x = 0, y = 0, width = 0, height = 0, index = 0 } = props;
+    const row = companyStatusData[index] as Record<string, number> | undefined;
+    if (!row) return null;
+    let total = 0;
+    if (payVisible.paid) total += row[`${t}_paid`] || 0;
+    if (payVisible.unpaid) total += row[`${t}_unpaid`] || 0;
+    if (total <= 0) return null;
+    return <text x={x + width + 5} y={y + height / 2} dy={4} fontSize={10} fontWeight={600} fill="#4B5563" textAnchor="start">{total.toLocaleString()}</text>;
+  };
 
   /* chart 2 — total docs by company (ซ่อนบริษัทได้) */
   const companyTotalData = companyStatusData.filter((d) => !hiddenCompanies.has(d.id)).map((d) => ({ id: d.id, name: d.name, value: d.total }));
@@ -641,23 +652,25 @@ export function Page5Permits() {
                 payVisible.paid ? (
                   <Bar key={`${t}_p`} dataKey={`${t}_paid`} name={`${t} · ชำระแล้ว`} stackId={t} fill={TYPE_COLOR[t]} maxBarSize={22}
                     radius={payVisible.unpaid ? [0, 0, 0, 0] : [0, 4, 4, 0]}
+                    label={!payVisible.unpaid ? stackLabel(t) : undefined}
                     fillOpacity={activeSeries === undefined || activeSeries === t ? 1 : 0.2}
                     onMouseEnter={() => setActiveSeries(t)} onMouseLeave={() => setActiveSeries(undefined)} />
                 ) : null,
                 payVisible.unpaid ? (
                   <Bar key={`${t}_u`} dataKey={`${t}_unpaid`} name={`${t} · ยังไม่ชำระ`} stackId={t} fill={TYPE_COLOR[t]} maxBarSize={22} radius={[0, 4, 4, 0]}
+                    label={stackLabel(t)}
                     fillOpacity={activeSeries === undefined || activeSeries === t ? 0.3 : 0.1}
                     onMouseEnter={() => setActiveSeries(t)} onMouseLeave={() => setActiveSeries(undefined)} />
                 ) : null,
               ].filter(Boolean))}
             </BarChart>
           </ResponsiveContainer>
-          <Chips items={[{ id: "paid", name: "ชำระแล้ว", color: PRIMARY }, { id: "unpaid", name: "ยังไม่ชำระ", color: "#9CA3AF" }]} hidden={hiddenPay}
-            onToggle={(id) => setHiddenPay((prev) => toggleSet(prev, id))} onReset={() => setHiddenPay(new Set())} label="แสดง/ซ่อน สถานะการชำระเงิน" />
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 4px 0", borderTop: "1px solid #F3F4F6", marginTop: 8 }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: "#0E1119", flex: 1 }}>ยอดรวม</span>
             <span style={{ fontSize: 13, fontWeight: 700, color: PRIMARY }}>{groupBarTotal.toLocaleString()} ฉบับ</span>
           </div>
+          <Chips items={[{ id: "paid", name: "ชำระแล้ว", color: PRIMARY }, { id: "unpaid", name: "ยังไม่ชำระ", color: "#9CA3AF" }]} hidden={hiddenPay}
+            onToggle={(id) => setHiddenPay((prev) => toggleSet(prev, id))} onReset={() => setHiddenPay(new Set())} label="แสดง/ซ่อน สถานะการชำระเงิน" />
           <Chips items={DOC_TYPES.map((t) => ({ id: t.key, name: t.key, color: t.color }))} hidden={hiddenSeries}
             onToggle={(id) => setHiddenSeries((prev) => toggleSet(prev, id))} onReset={() => setHiddenSeries(new Set())} label="แสดง/ซ่อน ประเภทหนังสือ" />
           </>
