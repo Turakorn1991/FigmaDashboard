@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Search, FileSpreadsheet, ChevronDown, X, Download, Copy, Check, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
+import { Search, FileSpreadsheet, ChevronDown, X, Download, Copy, Check, ChevronLeft, ChevronRight, CalendarDays, FileText } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Sector } from "recharts";
 import { Table, ConfigProvider } from "antd";
 import type { TableColumnsType, TableProps } from "antd";
@@ -85,23 +85,64 @@ const LIC_STATUS_STYLE: Record<"valid" | "expired", { bg: string; color: string;
   expired: { bg: "#FEF2F2", color: "#DC2626", label: "หมดอายุ" },
 };
 
+const buyerGroupLabel = (unit: string) => BUYER_GROUPS.find((g) => g.id === buyerUnitGroupId(unit))?.label ?? "ไม่ระบุ";
+
+// จำนวนขนย้ายจริง — อ้างอิงจากเมนู 2 "ยอดการขนย้าย/ส่งมอบ ตามแบบ อ.10" (สูตร transportQty เดียวกัน: floor(qty × (0.5 + (id % 5) × 0.1)))
+const moveActualQty = (requested: number, id: number): number => Math.floor(requested * (0.5 + (id % 5) * 0.1));
+
+interface WeaponItem { weaponCode: string; weaponName: string; weaponCategory: string; requested: number; actual: number; remaining: number; unit: string; }
 interface DocRow {
   docNo: string; dateISO: string; dateTH: string; expireTH: string;
   companyId: string; company: string; status: MoveStatus; expired: boolean;
+  transportType: string; moveCategory: string; buyerGroup: string; buyerUnit: string;
+  items: WeaponItem[];
 }
-// จัดกลุ่ม MoveRow (รายบรรทัด) → หนังสืออนุญาต (ฉบับ) ตาม docNo
+// จัดกลุ่ม MoveRow (รายบรรทัด) → หนังสืออนุญาต (ฉบับ) ตาม docNo — เก็บรายการอาวุธทุกบรรทัด
 const buildDocs = (rows: MoveRow[]): DocRow[] => {
   const map = new Map<string, DocRow>();
   for (const r of rows) {
-    if (!r.docNo || map.has(r.docNo)) continue;
-    map.set(r.docNo, {
-      docNo: r.docNo, dateISO: r.dateISO, dateTH: r.dateTH, expireTH: r.expireTH,
-      companyId: r.companyId, company: r.company, status: docStatus(r.docNo),
-      expired: isExpiredTH(r.expireTH),
+    if (!r.docNo) continue;
+    let doc = map.get(r.docNo);
+    if (!doc) {
+      const status = docStatus(r.docNo);
+      doc = {
+        docNo: r.docNo, dateISO: r.dateISO, dateTH: r.dateTH, expireTH: r.expireTH,
+        companyId: r.companyId, company: r.company, status,
+        expired: isExpiredTH(r.expireTH),
+        transportType: r.transportType, moveCategory: moveCategoryOf(r),
+        buyerGroup: buyerGroupLabel(r.buyerUnit), buyerUnit: r.buyerUnit || "-",
+        items: [],
+      };
+      map.set(r.docNo, doc);
+    }
+    const actual = moveActualQty(r.qty, r.id);
+    doc.items.push({
+      weaponCode: r.weaponCode, weaponName: r.weaponName, weaponCategory: r.weaponCategory,
+      requested: r.qty, actual, remaining: Math.max(r.qty - actual, 0), unit: r.unit,
     });
   }
   return [...map.values()];
 };
+
+// กราฟครึ่งวงกลม (semicircle gauge) — ขนย้ายจริง เทียบ ขออนุญาต
+function GaugeHalf({ requested, actual }: { requested: number; actual: number }) {
+  const pct = requested > 0 ? Math.min(100, Math.round((actual / requested) * 100)) : 0;
+  const data = [{ name: "actual", value: actual }, { name: "rest", value: Math.max(requested - actual, 0) }];
+  const color = pct >= 100 ? "#10B981" : pct > 0 ? PRIMARY : "#9CA3AF";
+  return (
+    <div style={{ position: "relative", width: 180, height: 104 }}>
+      <PieChart width={180} height={104}>
+        <Pie data={data} cx={90} cy={92} startAngle={180} endAngle={0} innerRadius={54} outerRadius={80} dataKey="value" stroke="none" isAnimationActive={false}>
+          <Cell fill={color} />
+          <Cell fill="#EEF0F4" />
+        </Pie>
+      </PieChart>
+      <div style={{ position: "absolute", top: 57, left: 0, width: "100%", textAlign: "center", pointerEvents: "none" }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color, lineHeight: 1 }}>{pct}%</div>
+      </div>
+    </div>
+  );
+}
 
 const LBL: React.CSSProperties = { display: "block", fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6 };
 const INPUT_H = 44;
@@ -431,6 +472,7 @@ export function Page4Recipients() {
   const [searched, setSearched] = useState(false);
   const [tablePage, setTablePage] = useState(1);
   const [tablePageSize, setTablePageSize] = useState(10);
+  const [detailDoc, setDetailDoc] = useState<DocRow | null>(null);
 
   /* โหลดข้อมูลจริง (async) — เก็บ row ดิบไว้ แล้วค่อยกรอง+จัดกลุ่มเป็นหนังสืออนุญาต (ฉบับ) */
   const [ALL_ROWS, setRows] = useState<MoveRow[]>([]);
@@ -610,10 +652,14 @@ export function Page4Recipients() {
 
   const antColumns: TableColumnsType<TableRow> = [
     { title: "#", key: "no", width: 56, fixed: "left" as const, align: "center" as const, render: (_: unknown, __: TableRow, i: number) => (tablePage - 1) * tablePageSize + i + 1 },
-    { title: "หนังสืออนุญาต อ.10", dataIndex: "docNo", key: "docNo", width: 160, ...getColSearchProps("docNo", "หนังสืออนุญาต"), render: (v: string) => <span style={{ fontFamily: "monospace", fontWeight: 600 }}>{v}</span> },
+    { title: "หนังสืออนุญาต อ.10", dataIndex: "docNo", key: "docNo", width: 160, ...getColSearchProps("docNo", "หนังสืออนุญาต"), render: (v: string, record: TableRow) => <button onClick={() => setDetailDoc(record)} style={{ fontFamily: "monospace", fontWeight: 600, fontSize: 13, color: PRIMARY, background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "underline" }}>{v}</button> },
     { title: "วันที่อนุญาต อ.10", dataIndex: "dateTH", key: "dateTH", width: 140, sorter: (a, b) => a.dateISO.localeCompare(b.dateISO) },
     { title: "วันที่หมดอายุ อ.10", dataIndex: "expireTH", key: "expireTH", width: 140 },
-    { title: "ผู้ประกอบการ", dataIndex: "company", key: "company", sorter: (a, b) => a.company.localeCompare(b.company, "th"), ...getColSearchProps("company", "ผู้ประกอบการ") },
+    { title: "ประเภทขนย้าย", dataIndex: "transportType", key: "transportType", width: 180, ...getColSearchProps("transportType", "ประเภทขนย้าย") },
+    { title: "ประเภทการขนย้าย", dataIndex: "moveCategory", key: "moveCategory", width: 240, ...getColSearchProps("moveCategory", "ประเภทการขนย้าย") },
+    { title: "ผู้ประกอบการ", dataIndex: "company", key: "company", width: 240, sorter: (a, b) => a.company.localeCompare(b.company, "th"), ...getColSearchProps("company", "ผู้ประกอบการ") },
+    { title: "กลุ่มหน่วยผู้ซื้อ", dataIndex: "buyerGroup", key: "buyerGroup", width: 180, ...getColSearchProps("buyerGroup", "กลุ่มหน่วยผู้ซื้อ") },
+    { title: "หน่วยผู้ซื้อ", dataIndex: "buyerUnit", key: "buyerUnit", width: 200, ...getColSearchProps("buyerUnit", "หน่วยผู้ซื้อ") },
     { title: "สถานะหนังสืออนุญาต", dataIndex: "expired", key: "expired", width: 170, align: "center" as const,
       filters: [{ text: "ยังไม่หมดอายุ", value: false }, { text: "หมดอายุ", value: true }],
       onFilter: (value, record) => record.expired === value,
@@ -637,16 +683,18 @@ export function Page4Recipients() {
     dataSource: tableData,
     size: "middle",
     pagination: { current: tablePage, pageSize: tablePageSize, showSizeChanger: true, pageSizeOptions: ["10","20","50"], showTotal: (total, range) => `${range[0]}-${range[1]} จาก ${total} รายการ`, locale: { items_per_page: "/หน้า", jump_to: "ไปที่", page: "หน้า" }, onChange: (p, ps) => { setTablePage(p); setTablePageSize(ps); } },
-    scroll: { x: 1120 },
+    scroll: { x: 1876 },
   };
 
   const exportExcel = () => {
     const data = docs.map((d, i) => ({
       "#": i + 1, "หนังสืออนุญาต อ.10": d.docNo, "วันที่อนุญาต อ.10": d.dateTH, "วันที่หมดอายุ อ.10": d.expireTH,
-      "ผู้ประกอบการ": d.company, "สถานะหนังสืออนุญาต": d.expired ? "หมดอายุ" : "ยังไม่หมดอายุ", "สถานะการขนย้าย": d.status,
+      "ประเภทขนย้าย": d.transportType, "ประเภทการขนย้าย": d.moveCategory, "ผู้ประกอบการ": d.company,
+      "กลุ่มหน่วยผู้ซื้อ": d.buyerGroup, "หน่วยผู้ซื้อ": d.buyerUnit,
+      "สถานะหนังสืออนุญาต": d.expired ? "หมดอายุ" : "ยังไม่หมดอายุ", "สถานะการขนย้าย": d.status,
     }));
     const ws = XLSX.utils.json_to_sheet(data);
-    ws["!cols"] = [{ wch: 5 }, { wch: 18 }, { wch: 16 }, { wch: 16 }, { wch: 40 }, { wch: 18 }, { wch: 18 }];
+    ws["!cols"] = [{ wch: 5 }, { wch: 18 }, { wch: 16 }, { wch: 16 }, { wch: 22 }, { wch: 32 }, { wch: 40 }, { wch: 22 }, { wch: 26 }, { wch: 18 }, { wch: 18 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "สถานะการขนย้าย");
     const d = new Date(); const p = (n: number) => String(n).padStart(2, "0");
@@ -729,12 +777,12 @@ export function Page4Recipients() {
         {/* Row 4: ประเภทอาวุธ * | หน่วยนับ * | อาวุธ (1/3 เท่ากัน) */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, alignItems: "end" }}>
           <div>
-            <label style={LBL}>ประเภทอาวุธ <span style={{ color: "#EF4444" }}>*</span></label>
+            <label style={LBL}>ประเภทอาวุธ</label>
             <SelectField value={f_weaponType} onChange={(v) => { setWeaponType(v); setWeapons([]); if (v === "กระสุน") setUnit("นัด"); }} placeholder="เลือกประเภท"
               options={WEAPON_CATEGORY_OPTIONS.map((c) => ({ value: c, label: c }))} />
           </div>
           <div>
-            <label style={LBL}>หน่วยนับ <span style={{ color: "#EF4444" }}>*</span></label>
+            <label style={LBL}>หน่วยนับ</label>
             <SelectField value={f_unit} onChange={(v) => { setUnit(v); setWeapons([]); }} placeholder="เลือกหน่วยนับ"
               options={UNIT_OPTIONS.map((u) => ({ value: u, label: u }))} />
           </div>
@@ -762,11 +810,11 @@ export function Page4Recipients() {
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#fff"; }}>
             รีเซ็ต
           </button>
-          <button onClick={handleSearch} disabled={!f_weaponType || !f_unit || dataLoading}
+          <button onClick={handleSearch} disabled={dataLoading}
             title={dataLoading ? "กำลังโหลดข้อมูล..." : ""}
-            style={{ width: 40, height: 40, borderRadius: 8, background: (!f_weaponType || !f_unit || dataLoading) ? "#D1D5DB" : PRIMARY, border: "none", cursor: (!f_weaponType || !f_unit || dataLoading) ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.15s" }}
-            onMouseEnter={(e) => { if (f_weaponType && f_unit && !dataLoading) (e.currentTarget as HTMLButtonElement).style.background = "#515ed8"; }}
-            onMouseLeave={(e) => { if (f_weaponType && f_unit && !dataLoading) (e.currentTarget as HTMLButtonElement).style.background = PRIMARY; }}>
+            style={{ width: 40, height: 40, borderRadius: 8, background: dataLoading ? "#D1D5DB" : PRIMARY, border: "none", cursor: dataLoading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.15s" }}
+            onMouseEnter={(e) => { if (!dataLoading) (e.currentTarget as HTMLButtonElement).style.background = "#515ed8"; }}
+            onMouseLeave={(e) => { if (!dataLoading) (e.currentTarget as HTMLButtonElement).style.background = PRIMARY; }}>
             <Search size={17} color="#fff" />
           </button>
         </div>
@@ -924,6 +972,90 @@ export function Page4Recipients() {
           <Table {...antTableProps} style={{ fontFamily: FF }} />
         </ConfigProvider>
       </div>
+
+      {/* Detail Modal — รายละเอียดหนังสืออนุญาต อ.10 */}
+      {detailDoc && (
+        <div onClick={() => setDetailDoc(null)}
+          style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "40px 16px", overflowY: "auto" }}>
+          <div onClick={(e) => e.stopPropagation()}
+            style={{ width: "100%", maxWidth: 720, background: "#fff", borderRadius: 16, boxShadow: "0 20px 60px rgba(0,0,0,0.25)", overflow: "hidden", fontFamily: FF }}>
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "18px 22px", borderBottom: "1px solid #F0F0F0" }}>
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: "#EEF2FF", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <FileText size={20} color={PRIMARY} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "#0E1119" }}>รายละเอียดหนังสืออนุญาต อ.10</div>
+                <div style={{ fontSize: 12, color: "#8B8E95", fontFamily: "monospace", marginTop: 2 }}>{detailDoc.docNo}</div>
+              </div>
+              <button onClick={() => setDetailDoc(null)}
+                style={{ width: 32, height: 32, borderRadius: 8, border: "none", background: "#F3F4F6", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <X size={17} color="#6B7280" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: 22, maxHeight: "70vh", overflowY: "auto" }}>
+              {/* Metadata */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 20px", marginBottom: 20 }}>
+                {[
+                  { l: "เลขที่หนังสือ อ.10", v: detailDoc.docNo },
+                  { l: "ผู้ประกอบการ", v: detailDoc.company },
+                  { l: "วันที่อนุญาต อ.10", v: detailDoc.dateTH },
+                  { l: "วันที่หมดอายุ อ.10", v: detailDoc.expireTH },
+                ].map((m) => (
+                  <div key={m.l}>
+                    <div style={{ fontSize: 11, color: "#8B8E95", fontWeight: 600, marginBottom: 2 }}>{m.l}</div>
+                    <div style={{ fontSize: 13, color: "#0E1119", fontWeight: 500 }}>{m.v}</div>
+                  </div>
+                ))}
+                <div>
+                  <div style={{ fontSize: 11, color: "#8B8E95", fontWeight: 600, marginBottom: 4 }}>สถานะหนังสืออนุญาต</div>
+                  <span style={{ display: "inline-flex", alignItems: "center", height: 24, padding: "0 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, background: LIC_STATUS_STYLE[detailDoc.expired ? "expired" : "valid"].bg, color: LIC_STATUS_STYLE[detailDoc.expired ? "expired" : "valid"].color }}>{LIC_STATUS_STYLE[detailDoc.expired ? "expired" : "valid"].label}</span>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: "#8B8E95", fontWeight: 600, marginBottom: 4 }}>สถานะการขนย้าย</div>
+                  <span style={{ display: "inline-flex", alignItems: "center", height: 24, padding: "0 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, background: STATUS_STYLE[detailDoc.status].bg, color: STATUS_STYLE[detailDoc.status].color }}>{detailDoc.status}</span>
+                </div>
+              </div>
+
+              {/* Block: อาวุธหรือวัตถุที่ขนย้าย */}
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#0E1119", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                อาวุธหรือวัตถุที่ขนย้าย
+                <span style={{ fontSize: 12, fontWeight: 600, color: PRIMARY, background: "#EEF2FF", borderRadius: 20, padding: "1px 10px" }}>{detailDoc.items.length} รายการ</span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {detailDoc.items.map((it, i) => (
+                  <div key={i} style={{ border: "1px solid #E5E7EB", borderRadius: 12, padding: 16, display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+                    <div style={{ flex: 1, minWidth: 220 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#0E1119" }}>{it.weaponName}</div>
+                      <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>{it.weaponCategory} · <span style={{ fontFamily: "monospace" }}>{it.weaponCode}</span></div>
+                      <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                          <span style={{ color: "#6B7280" }}>จำนวนขออนุญาต</span>
+                          <span style={{ fontWeight: 600, color: "#0E1119" }}>{it.requested.toLocaleString()} {it.unit}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                          <span style={{ color: "#6B7280" }}>จำนวนขนย้ายจริง</span>
+                          <span style={{ fontWeight: 600, color: PRIMARY }}>{it.actual.toLocaleString()} {it.unit}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, borderTop: "1px dashed #E5E7EB", paddingTop: 6 }}>
+                          <span style={{ color: "#6B7280" }}>ยอดคงเหลือ</span>
+                          <span style={{ fontWeight: 700, color: it.remaining > 0 ? "#D97706" : "#059669" }}>{it.remaining.toLocaleString()} {it.unit}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
+                      <GaugeHalf requested={it.requested} actual={it.actual} />
+                      <div style={{ fontSize: 11, color: "#8B8E95", marginTop: -4 }}>ขนย้ายจริง / ขออนุญาต</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
