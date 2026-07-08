@@ -655,7 +655,7 @@ export function Page4Recipients() {
     { title: "หนังสืออนุญาต อ.10", dataIndex: "docNo", key: "docNo", width: 160, ...getColSearchProps("docNo", "หนังสืออนุญาต"), render: (v: string, record: TableRow) => <button onClick={() => setDetailDoc(record)} style={{ fontFamily: "monospace", fontWeight: 600, fontSize: 13, color: PRIMARY, background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "underline" }}>{v}</button> },
     { title: "วันที่อนุญาต อ.10", dataIndex: "dateTH", key: "dateTH", width: 140, sorter: (a, b) => a.dateISO.localeCompare(b.dateISO) },
     { title: "วันที่หมดอายุ อ.10", dataIndex: "expireTH", key: "expireTH", width: 140 },
-    { title: "ประเภทขนย้าย", dataIndex: "transportType", key: "transportType", width: 180, ...getColSearchProps("transportType", "ประเภทขนย้าย") },
+    { title: "ประเภทการขออนุญาต", dataIndex: "transportType", key: "transportType", width: 200, ...getColSearchProps("transportType", "ประเภทการขออนุญาต") },
     { title: "ประเภทการขนย้าย", dataIndex: "moveCategory", key: "moveCategory", width: 240, ...getColSearchProps("moveCategory", "ประเภทการขนย้าย") },
     { title: "ผู้ประกอบการ", dataIndex: "company", key: "company", width: 240, sorter: (a, b) => a.company.localeCompare(b.company, "th"), ...getColSearchProps("company", "ผู้ประกอบการ") },
     { title: "กลุ่มหน่วยผู้ซื้อ", dataIndex: "buyerGroup", key: "buyerGroup", width: 180, ...getColSearchProps("buyerGroup", "กลุ่มหน่วยผู้ซื้อ") },
@@ -683,13 +683,13 @@ export function Page4Recipients() {
     dataSource: tableData,
     size: "middle",
     pagination: { current: tablePage, pageSize: tablePageSize, showSizeChanger: true, pageSizeOptions: ["10","20","50"], showTotal: (total, range) => `${range[0]}-${range[1]} จาก ${total} รายการ`, locale: { items_per_page: "/หน้า", jump_to: "ไปที่", page: "หน้า" }, onChange: (p, ps) => { setTablePage(p); setTablePageSize(ps); } },
-    scroll: { x: 1876 },
+    scroll: { x: 1896 },
   };
 
   const exportExcel = () => {
     const data = docs.map((d, i) => ({
       "#": i + 1, "หนังสืออนุญาต อ.10": d.docNo, "วันที่อนุญาต อ.10": d.dateTH, "วันที่หมดอายุ อ.10": d.expireTH,
-      "ประเภทขนย้าย": d.transportType, "ประเภทการขนย้าย": d.moveCategory, "ผู้ประกอบการ": d.company,
+      "ประเภทการขออนุญาต": d.transportType, "ประเภทการขนย้าย": d.moveCategory, "ผู้ประกอบการ": d.company,
       "กลุ่มหน่วยผู้ซื้อ": d.buyerGroup, "หน่วยผู้ซื้อ": d.buyerUnit,
       "สถานะหนังสืออนุญาต": d.expired ? "หมดอายุ" : "ยังไม่หมดอายุ", "สถานะการขนย้าย": d.status,
     }));
@@ -728,7 +728,7 @@ export function Page4Recipients() {
             <ThaiDateRangePicker from={f_dateFrom} to={f_dateTo} onChange={(from, to) => { setDateFrom(from); setDateTo(to); }} />
           </div>
           <div>
-            <label style={LBL}>ประเภทขนย้าย</label>
+            <label style={LBL}>ประเภทการขออนุญาต</label>
             <MultiSelect placeholder="ทั้งหมด"
               options={TRANSPORT_TYPES.map((t) => ({ id: t, label: t }))}
               selected={f_transportTypes} onChange={setTransportTypes} />

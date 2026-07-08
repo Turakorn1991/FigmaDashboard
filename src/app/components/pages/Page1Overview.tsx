@@ -570,7 +570,7 @@ export function Page1Overview() {
 
   const exportRawExcel = () => {
     const headers = [
-      "เลขที่หนังสือ อ.10","วันที่อนุญาต อ.10","วันที่หมดอายุ อ.10","เอกสารการซื้อ","ประเภทขนย้าย","ประเภทการขนย้าย","ผู้ประกอบการ",
+      "เลขที่หนังสือ อ.10","วันที่อนุญาต อ.10","วันที่หมดอายุ อ.10","เอกสารการซื้อ","ประเภทการขออนุญาต","ประเภทการขนย้าย","ผู้ประกอบการ",
       "กลุ่มหน่วยผู้ซื้อ","หน่วยผู้ซื้อ",
       "สถานที่ต้นทาง","บ้านเลขที่สถานที่ต้นทาง","อาคารสถานที่ต้นทาง","หมู่ที่สถานที่ต้นทาง",
       "ซอยสถานที่ต้นทาง","ถนนสถานที่ต้นทาง","ตำบลสถานที่ต้นทาง","อำเภอสถานที่ต้นทาง",
@@ -651,7 +651,7 @@ export function Page1Overview() {
     { title: "เลขที่หนังสือ อ.10", dataIndex: "docNo",       key: "docNo",         width: 140, ...getColSearchProps("docNo", "เลขที่หนังสือ") },
     { title: "วันที่อนุญาต อ.10",    dataIndex: "dateFormatted", key: "date",          width: 140, sorter: (a, b) => a.date.localeCompare(b.date) },
     { title: "วันที่หมดอายุ อ.10",   dataIndex: "expireDate",    key: "expireDate",    width: 140 },
-    { title: "ประเภทขนย้าย",   dataIndex: "transportType", key: "transportType", width: 210,
+    { title: "ประเภทการขออนุญาต",   dataIndex: "transportType", key: "transportType", width: 210,
       filters: TRANSPORT_TYPES.map((t) => ({ text: t, value: t })),
       onFilter: (value, record) => record.transportType === value,
       render: (v: TransportType) => <span>{v}</span>,
@@ -742,7 +742,7 @@ export function Page1Overview() {
             <ThaiDateRangePicker from={f_dateFrom} to={f_dateTo} onChange={(from, to) => { setDateFrom(from); setDateTo(to); }} />
           </div>
           <div>
-            <label style={LBL}>ประเภทขนย้าย</label>
+            <label style={LBL}>ประเภทการขออนุญาต</label>
             <MultiSelect placeholder="ทั้งหมด"
               options={TRANSPORT_TYPES.map((t) => ({ id: t, label: t }))}
               selected={f_transportTypes} onChange={setTransportTypes} />
