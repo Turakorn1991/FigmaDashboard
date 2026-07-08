@@ -747,7 +747,7 @@ export function Page2Company() {
 
   const exportRawExcel = () => {
     const headers = [
-      "เลขที่หนังสือ อ.10","วันที่อนุญาต","วันที่หมดอายุ","ประเภทขนย้าย","ประเภทการขนย้าย","ผู้ประกอบการ",
+      "เลขที่หนังสือ อ.10","วันที่อนุญาต อ.10","วันที่หมดอายุ อ.10","ประเภทขนย้าย","ประเภทการขนย้าย","ผู้ประกอบการ",
       "กลุ่มหน่วยผู้ซื้อ","หน่วยผู้ซื้อ",
       "สถานที่ปลายทาง","บ้านเลขที่สถานที่ปลายทาง","อาคารสถานที่ปลายทาง","หมู่ที่สถานที่ปลายทาง",
       "ซอยสถานที่ปลายทาง","ถนนสถานที่ปลายทาง","ตำบลสถานที่ปลายทาง","อำเภอสถานที่ปลายทาง",
@@ -822,8 +822,8 @@ export function Page2Company() {
   const antColumns: TableColumnsType<TableRow> = [
     { title: "#",                   key: "no",            width: 52,  fixed: "left" as const, align: "center" as const, render: (_: unknown, __: TableRow, i: number) => (tablePage - 1) * tablePageSize + i + 1 },
     { title: "เลขที่หนังสือ อ.10",  dataIndex: "docNo",          key: "docNo",          width: 140, ...getColSearchProps("docNo", "เลขที่หนังสือ") },
-    { title: "วันที่อนุญาต",         dataIndex: "dateFormatted",  key: "date",           width: 120, sorter: (a, b) => a.date.localeCompare(b.date) },
-    { title: "วันที่หมดอายุ",        dataIndex: "expireDate",     key: "expireDate",     width: 120 },
+    { title: "วันที่อนุญาต อ.10",         dataIndex: "dateFormatted",  key: "date",           width: 140, sorter: (a, b) => a.date.localeCompare(b.date) },
+    { title: "วันที่หมดอายุ อ.10",        dataIndex: "expireDate",     key: "expireDate",     width: 140 },
     { title: "ประเภทขนย้าย",        dataIndex: "transportType",  key: "transportType",  width: 210,
       filters: TRANSPORT_TYPES.map((t) => ({ text: t, value: t })),
       onFilter: (value, record) => record.transportType === value,

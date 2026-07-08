@@ -615,7 +615,7 @@ export function Page3Ammo() {
 
   const exportRawExcel = () => {
     const headers = [
-      "#","เลขที่หนังสือ อ.8","วันที่อนุญาต","วันที่หมดอายุ","ผู้ประกอบการ",
+      "#","เลขที่หนังสือ อ.8","วันที่อนุญาต อ.8","วันที่หมดอายุ อ.8","ผู้ประกอบการ",
       "รหัสวัตถุหรืออาวุธ","วัตถุหรืออาวุธ","ประเทศผู้ผลิต","จำนวนที่ได้รับอนุญาต","จำนวนที่นำเข้าจริง(ตามแจ้งกรมศุลฯ)","หน่วยนับ",
     ];
     const dataRows = rows.map((r, i) => [
@@ -669,8 +669,8 @@ export function Page3Ammo() {
   const antColumns: TableColumnsType<TableRow> = [
     { title: "#",                 key: "no",            width: 52,  fixed: "left" as const, align: "center" as const, render: (_: unknown, __: TableRow, i: number) => (tablePage - 1) * tablePageSize + i + 1 },
     { title: "เลขที่หนังสือ อ.8", dataIndex: "docNo",       key: "docNo",      width: 130, ...getColSearchProps("docNo", "เลขที่หนังสือ อ.8") },
-    { title: "วันที่อนุญาต",      dataIndex: "dateFormatted", key: "date",     width: 120, sorter: (a, b) => a.date.localeCompare(b.date) },
-    { title: "วันที่หมดอายุ",     dataIndex: "expireDate",  key: "expireDate", width: 120 },
+    { title: "วันที่อนุญาต อ.8",      dataIndex: "dateFormatted", key: "date",     width: 140, sorter: (a, b) => a.date.localeCompare(b.date) },
+    { title: "วันที่หมดอายุ อ.8",     dataIndex: "expireDate",  key: "expireDate", width: 140 },
     { title: "ผู้ประกอบการ",      dataIndex: "company",     key: "company",    width: 240, sorter: (a, b) => a.company.localeCompare(b.company, "th"), ...getColSearchProps("company", "ผู้ประกอบการ") },
     { title: "รหัสวัตถุหรืออาวุธ", dataIndex: "weaponCode",  key: "weaponCode", width: 140, sorter: (a, b) => a.weaponCode.localeCompare(b.weaponCode), ...getColSearchProps("weaponCode", "รหัสวัตถุหรืออาวุธ"), render: (v: string) => <span style={{ fontFamily: "monospace" }}>{v}</span> },
     { title: "วัตถุหรืออาวุธ",     dataIndex: "weaponLabel", key: "weapon",     width: 280, sorter: (a, b) => a.weaponLabel.localeCompare(b.weaponLabel, "th"), ...getColSearchProps("weaponLabel", "วัตถุหรืออาวุธ") },
